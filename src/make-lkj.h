@@ -1,0 +1,22 @@
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::interfaces(r, cpp)]]
+
+using namespace Rcpp;
+using namespace arma;
+
+///////////////////////////////////////////////////////////////////////////////
+////// A function for turning an \code{choose(d, 2)}-vector into a d by d /////
+////// matrix for use in constructing an upper-triangular Cholesky ////////////
+////// decomposition of a correlation matrix //////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+arma::mat makeUpperLKJ(const arma::vec& x, const int& d);
+
+///////////////////////////////////////////////////////////////////////////////
+///////// A function for generating a d by d upper-triangular Cholesky ////////
+///////// decomposition of a correlation matrix using makeUpperLKJ ////////////
+///////////////////////////////////////////////////////////////////////////////
+
+Rcpp::List makeRLKJ(const arma::vec& xi, const int& d,
+                    bool cholesky=false, bool jacobian=false);

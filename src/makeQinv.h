@@ -1,0 +1,13 @@
+#include <RcppArmadillo.h>
+
+// [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::interfaces(r, cpp)]]
+
+using namespace Rcpp;
+using namespace arma;
+
+///////////////////////////////////////////////////////////////////////////////
+////////// Makes a conditional autoregressive (CAR) precision matrix //////////
+///////////////////////////////////////////////////////////////////////////////
+
+arma::mat makeQinv(const double& theta, const int& t);

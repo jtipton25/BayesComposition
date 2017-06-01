@@ -1,0 +1,11 @@
+Package: BayesComposition
+Type: Package
+Title: Fit forward and inverse prediction Bayesian functional models for compositional data
+Version: 1.0
+Date: 2017-05-31
+Author: John Tipton
+Maintainer: John Tipton <jtipton25@gmail.com>
+Description: More about what it does (maybe more than one line)
+License: What license is it under?
+Imports: Rcpp (>= 0.12.10)
+LinkingTo: Rcpp, RcppArmadillo

@@ -1,0 +1,3 @@
+useDynLib(BayesComposition)
+importFrom(Rcpp, evalCpp)
+exportPattern("^[[:alpha:]]+")
