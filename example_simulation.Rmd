@@ -1,0 +1,245 @@
+---
+title: "Untitled"
+author: "John Tipton"
+date: "6/6/2017"
+output: html_document
+---
+
+
+
+```{r, warning=FALSE, message=FALSE}
+library(BayesComposition)
+library(ggplot2)
+N <- 500
+d <- 4
+```
+
+
+
+## Gaussian Simulation
+
+```{r, warning=FALSE, message=FALSE}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "gaussian",
+                              additive_correlation = TRUE)
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(dat$y),
+                          depth=rep(dat$X, times=d), alpha=c(dat$alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## multi-logit simulation using basis functions without overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "multi-logit",
+                              additive_correlation = FALSE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## multi-logit simulation using basis functions with overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "multi-logit",
+                              additive_correlation = TRUE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## multi-logit simulation using Gaussian process without overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "multi-logit",
+                              function_type = "gaussian-process",
+                              correlation_function = "gaussian",
+                              additive_correlation = FALSE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## multi-logit simulation using Gaussian process without overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "multi-logit",
+                              function_type = "gaussian-process",
+                              correlation_function = "gaussian",
+                              additive_correlation = TRUE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## dirichlet-multinomial simulation using Gaussian process without overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "dirichlet-multinomial",
+                              function_type = "gaussian-process",
+                              correlation_function = "gaussian",
+                              additive_correlation = FALSE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+## dirichlet-multinomial simulation using Gaussian process without overdispersion
+
+```{r}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "dirichlet-multinomial",
+                              function_type = "gaussian-process",
+                              correlation_function = "gaussian",
+                              additive_correlation = FALSE,
+                              multiplicative_correlation = TRUE)
+
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- dat$y[i, ] / sum(dat$y[i, ])
+  p_alpha[i, ] <- exp(dat$mu + dat$zeta[i, ]) / sum(exp(dat$mu + dat$zeta[i, ]))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(dat$X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```

@@ -1035,3 +1035,45 @@ RcppExport SEXP BayesComposition_RcppExport_registerCCallable() {
     R_RegisterCCallable("BayesComposition", "BayesComposition_RcppExport_validate", (DL_FUNC)BayesComposition_RcppExport_validate);
     return R_NilValue;
 }
+
+static const R_CallMethodDef CallEntries[] = {
+    {"BayesComposition_basis_cpp", (DL_FUNC) &BayesComposition_basis_cpp, 4},
+    {"BayesComposition_bs_cpp", (DL_FUNC) &BayesComposition_bs_cpp, 6},
+    {"BayesComposition_colSums", (DL_FUNC) &BayesComposition_colSums, 1},
+    {"BayesComposition_d_half_cauchy", (DL_FUNC) &BayesComposition_d_half_cauchy, 3},
+    {"BayesComposition_dMVN", (DL_FUNC) &BayesComposition_dMVN, 4},
+    {"BayesComposition_dMVNChol", (DL_FUNC) &BayesComposition_dMVNChol, 4},
+    {"BayesComposition_LL_DM", (DL_FUNC) &BayesComposition_LL_DM, 5},
+    {"BayesComposition_LL_DM_row", (DL_FUNC) &BayesComposition_LL_DM_row, 4},
+    {"BayesComposition_logDet", (DL_FUNC) &BayesComposition_logDet, 1},
+    {"BayesComposition_logDetChol", (DL_FUNC) &BayesComposition_logDetChol, 1},
+    {"BayesComposition_logit", (DL_FUNC) &BayesComposition_logit, 1},
+    {"BayesComposition_expit", (DL_FUNC) &BayesComposition_expit, 1},
+    {"BayesComposition_makeUpperLKJ", (DL_FUNC) &BayesComposition_makeUpperLKJ, 2},
+    {"BayesComposition_makeRLKJ", (DL_FUNC) &BayesComposition_makeRLKJ, 4},
+    {"BayesComposition_makeDistARMA", (DL_FUNC) &BayesComposition_makeDistARMA, 2},
+    {"BayesComposition_makeQinv", (DL_FUNC) &BayesComposition_makeQinv, 2},
+    {"BayesComposition_mcmcRcppDM", (DL_FUNC) &BayesComposition_mcmcRcppDM, 8},
+    {"BayesComposition_mcmcRcppDMBasis", (DL_FUNC) &BayesComposition_mcmcRcppDMBasis, 8},
+    {"BayesComposition_mcmcRcppGAM", (DL_FUNC) &BayesComposition_mcmcRcppGAM, 5},
+    {"BayesComposition_mcmcRcppMVGP", (DL_FUNC) &BayesComposition_mcmcRcppMVGP, 7},
+    {"BayesComposition_mvrnormArma", (DL_FUNC) &BayesComposition_mvrnormArma, 3},
+    {"BayesComposition_mvrnormArmaVec", (DL_FUNC) &BayesComposition_mvrnormArmaVec, 2},
+    {"BayesComposition_mvrnormArmaChol", (DL_FUNC) &BayesComposition_mvrnormArmaChol, 3},
+    {"BayesComposition_mvrnormArmaVecChol", (DL_FUNC) &BayesComposition_mvrnormArmaVecChol, 2},
+    {"BayesComposition_rMVNArma", (DL_FUNC) &BayesComposition_rMVNArma, 2},
+    {"BayesComposition_rMVNArmaScalar", (DL_FUNC) &BayesComposition_rMVNArmaScalar, 2},
+    {"BayesComposition_seq_lenC", (DL_FUNC) &BayesComposition_seq_lenC, 1},
+    {"BayesComposition_updateTuning", (DL_FUNC) &BayesComposition_updateTuning, 3},
+    {"BayesComposition_updateTuningVec", (DL_FUNC) &BayesComposition_updateTuningVec, 3},
+    {"BayesComposition_updateTuningMat", (DL_FUNC) &BayesComposition_updateTuningMat, 3},
+    {"BayesComposition_updateTuningMV", (DL_FUNC) &BayesComposition_updateTuningMV, 6},
+    {"BayesComposition_updateTuningMVMat", (DL_FUNC) &BayesComposition_updateTuningMVMat, 6},
+    {"BayesComposition_RcppExport_registerCCallable", (DL_FUNC) &BayesComposition_RcppExport_registerCCallable, 0},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_BayesComposition(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+}

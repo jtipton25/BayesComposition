@@ -7,5 +7,10 @@ Author: John Tipton
 Maintainer: John Tipton <jtipton25@gmail.com>
 Description: More about what it does (maybe more than one line)
 License: What license is it under?
-Imports: Rcpp (>= 0.12.10)
+Imports: 
+    Rcpp (>= 0.12.10),
+    splines,
+    fields,
+    grid, 
+    coda
 LinkingTo: Rcpp, RcppArmadillo
