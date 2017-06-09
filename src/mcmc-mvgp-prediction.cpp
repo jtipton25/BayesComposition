@@ -33,8 +33,8 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const arma::mat& R_tau_current,
                   const arma::rowvec& Z_current, const double& phi_current,
                   const double& sigma_current, const arma::mat C_inv_current,
-                  const int& N_obs, const int& N, const int& d,
-                  const std::string& file_name, const int& n_chain,
+                  const int& N_pred, const int& d,
+                  const std::string& file_name,
                   const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process
   // prior_sample is a sample from the prior joing multivariate predictive process
@@ -96,11 +96,11 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     } else if (phi_angle < 0.0) {
       phi_angle_min = phi_angle;
     } else {
-      Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable n");
+      Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable \n");
       // set up output messages
       std::ofstream file_out;
       file_out.open(file_name, std::ios_base::app);
-      file_out << "Bug - ESS for X shrunk to current position on chain " << n_chain << "n";
+      file_out << "Bug - ESS for X shrunk to current position and still not acceptable \n";
       // close output file
       file_out.close();
     }
@@ -116,124 +116,67 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 }
 
 // [[Rcpp::export]]
-List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
-                      bool pool_s2_tau2=true, int n_chain=1,
-                      std::string file_name="sim-fit") {
+List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
+                      const double s2_X, const double min_X,
+                      const double max_X,
+                      List params,
+                      List samples,
+                      std::string file_name="mvgp-predict") {
   // arma::mat& R, arma::vec& tau2, double& phi, double& sigma2,
   // arma::mat& eta_star,
 
   // Load parameters
-  int n_adapt = as<int>(params["n_adapt"]);
-  int n_mcmc = as<int>(params["n_mcmc"]);
-  int N_obs = as<int>(params["N_obs"]);
-  int n_thin = as<int>(params["n_thin"]);
 
   // set up dimensions
-  double N = Y.n_rows;
-  double d = Y.n_cols;
+  double N_pred = Y_pred.n_rows;
+  double d = Y_pred.n_cols;
   double B = Rf_choose(d, 2);
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
   arma::vec ones_B(B, arma::fill::ones);
 
-  // default normal prior for overall mean mu
-  double mu_mu = 0.0;
-  if (params.containsElementNamed("mu_mu")) {
-    mu_mu = as<double>(params["mu_mu"]);
+  // standard deviation of covariate
+  double s_X = sqrt(s2_X);
+  // predictive process knots
+  arma::vec X_knots = as<vec>(params["X_knots"]);
+  double N_knots = X_knots.n_elem;
+
+  // Load MCMC estimated parameters
+  arma::mat mu_fit = as<mat>(samples["mu"]);
+  int n_samples = mu_fit.n_rows;
+  arma::vec mu = mu_fit.row(0).t();
+  arma::mat mu_mat(N_pred, d);
+  for (int i=0; i<N_pred; i++) {
+    mu_mat.row(i) = mu.t();
   }
-  // default prior for overall mean mu
-  double s2_mu = 100.0;
-  if (params.containsElementNamed("s2_mu")) {
-    s2_mu = as<double>(params["s2_mu"]);
-  }
-  double s_mu = sqrt(s2_mu);
-  // default uniform prior for Gaussian Process range
-  double phi_L = 0.0001;
-  if (params.containsElementNamed("phi_L")) {
-    phi_L = as<double>(params["phi_L"]);
-  }
-  // default uniform prior for Gaussian Process range
-  double phi_U = 1000.0;
-  if (params.containsElementNamed("phi_U")) {
-    phi_U = as<double>(params["phi_U"]);
-  }
-  // default half cauchy scale for generalized Wishart Gaussian Process nugget
-  double s2_sigma2 = 5.0;
-  if (params.containsElementNamed("s2_sigma2")) {
-    s2_sigma2 = as<double>(params["s2_sigma2"]);
-  }
-  // default half cauchy scale for Covariance diagonal variance tau2
-  double A_s2 = 25.0;
-  if (params.containsElementNamed("A_s2")) {
-    A_s2 = as<double>(params["A_s2"]);
-  }
-  // default half cauchy scale for generalized Wishart Gaussian Process sill
-  double s2_tau2 = 1.0;
-  if (params.containsElementNamed("s2_tau2")) {
-    s2_tau2 = as<double>(params["s2_tau2"]);
-  }
-  // default xi LKJ concentation parameter of 1
-  double eta = 1.0;
-  if (params.containsElementNamed("eta")) {
-    eta = as<double>(params["eta"]);
-  }
+  arma::vec phi_fit = as<vec>(samples["phi"]);
+  double phi = phi_fit(0);
+  arma::cube eta_star_fit = as<cube>(samples["eta_star"]);
+  arma::mat eta_star = eta_star_fit.subcube(0, 0, 0, 0, N_knots-1, d-1);
+  arma::mat xi_fit = as<mat>(samples["xi"]);
+  arma::vec xi = xi_fit.row(0).t();
+  arma::mat tau2_fit = as<mat>(samples["tau2"]);
+  arma::vec tau2 = tau2_fit.row(0).t();
+  arma::cube R_fit = as<cube>(samples["R"]);
+  arma::mat R = R_fit.subcube(0, 0, 0, 0, d-1, d-1);
+  arma::cube R_tau_fit = as<cube>(samples["R_tau"]);
+  arma::mat R_tau = R_tau_fit.subcube(0, 0, 0, 0, d-1, d-1);
+  arma::vec sigma2_fit = as<vec>(samples["sigma2"]);
+  double sigma2 = sigma2_fit(0);
+  double sigma = sqrt(sigma2);
 
   // default to message output every 5000 iterations
   int message = 5000;
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
   }
-  // default phi tuning parameter standard deviation of 0.25
-  double phi_tune = 0.25;
-  if (params.containsElementNamed("phi_tune")) {
-    phi_tune = as<double>(params["phi_tune"]);
-  }
-  // default sigma2 tuning parameter standard deviation of 0.25
-  double sigma2_tune = 0.25;
-  if (params.containsElementNamed("sigma2_tune")) {
-    sigma2_tune = as<double>(params["sigma2_tune"]);
-  }
-  // default mu tuning parameter
-  double lambda_mu_tune = 1.0 / pow(3.0, 0.8);
-  if (params.containsElementNamed("lambda_mu_tune")) {
-    lambda_mu_tune = as<double>(params["lambda_mu_tune"]);
-  }
-  // default lambda_eta_star tuning parameter standard deviation of 0.25
-  double lambda_eta_star_tune_tmp = 0.25;
-  if (params.containsElementNamed("lambda_eta_star_tune")) {
-    lambda_eta_star_tune_tmp = as<double>(params["lambda_eta_star_tune"]);
-  }
-  arma::vec lambda_eta_star_tune(d, arma::fill::ones);
-  lambda_eta_star_tune *= lambda_eta_star_tune_tmp;
-
-  // // default lambda_eta_star tuning parameter standard deviation of 0.25
-  // double lambda_eta_star_tune = 0.25;
-  // if (params.containsElementNamed("lambda_eta_star_tune")) {
-  //   lambda_eta_star_tune = as<double>(params["lambda_eta_star_tune"]);
-  // }
-  // default tau2 tuning parameter
-  double lambda_tau2_tune = 0.25;
-  if (params.containsElementNamed("lambda_tau2_tune")) {
-    lambda_tau2_tune = as<double>(params["lambda_tau2_tune"]);
-  }
-  // default xi tuning parameter
-  double lambda_xi_tune = 1.0 / pow(3.0, 0.8);
-  if (params.containsElementNamed("lambda_xi_tune")) {
-    lambda_xi_tune = as<double>(params["lambda_xi_tune"]);
-  }
   // default X tuning parameter standard deviation of 0.25
   double X_tune_tmp = 2.5;
   if (params.containsElementNamed("X_tune")) {
     X_tune_tmp = as<double>(params["X_tune"]);
   }
-  // default to centered missing covariate
-  double mu_X = arma::mean(X_input.subvec(0, N_obs-1));
-  // default to scaled missing covariate
-  double s2_X = arma::var(X_input.subvec(0, N_obs-1));
-  double s_X = sqrt(s2_X);
-  // predictive process knots
-  arma::vec X_knots = as<vec>(params["X_knots"]);
-  double N_knots = X_knots.n_elem;
+
+
 
   // Default sampling of missing covariate
   bool sample_X = true;
@@ -245,12 +188,11 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
   if (params.containsElementNamed("sample_X_mh")) {
     sample_X_mh = as<bool>(params["sample_X_mh"]);
   }
-  arma::vec X = X_input;
-  if (sample_X) {
-    for (int i=N_obs; i<N; i++) {
-      X(i) = R::rnorm(0.0, s_X);
-    }
+  arma::vec X_pred(N_pred, arma::fill::zeros);
+  for (int i=0; i<N_pred; i++) {
+    X_pred(i) = R::rnorm(0.0, s_X);
   }
+
 
   // default correlation functions
   std::string corr_function="exponential";
@@ -258,7 +200,7 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
     corr_function = as<std::string>(params["corr_function"]);
   }
 
-  arma::mat D = makeDistARMA(X, X_knots);
+  arma::mat D = makeDistARMA(X_pred, X_knots);
   arma::mat D_knots = makeDistARMA(X_knots, X_knots);
   if (corr_function == "gaussian") {
     D = pow(D, 2.0);
@@ -276,75 +218,6 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
   //
 
   //
-  // Default for mu
-  //
-  arma::vec mu(d, arma::fill::randn);
-  if (params.containsElementNamed("mu")) {
-    mu = as<vec>(params["mu"]);
-  }
-  bool sample_mu = true;
-  if (params.containsElementNamed("sample_mu")) {
-    sample_mu = as<bool>(params["sample_mu"]);
-  }
-  bool sample_mu_mh = false;
-  if (params.containsElementNamed("sample_mu_mh")) {
-    sample_mu_mh = as<bool>(params["sample_mu_mh"]);
-  }
-  arma::mat mu_mat(N, d);
-  for (int i=0; i<N; i++) {
-    mu_mat.row(i) = mu.t();
-  }
-
-  //
-  // Default for Gaussian process range parameter phi
-  //
-
-  double phi = std::min(R::runif(phi_L, phi_U), 5.0);
-  if (params.containsElementNamed("phi")) {
-    phi = as<double>(params["phi"]);
-  }
-  bool sample_phi = true;
-  if (params.containsElementNamed("sample_phi")) {
-    sample_phi = as<bool>(params["sample_phi"]);
-  }
-
-  //
-  // Regression error parameter sigma2
-  //
-
-  double lambda_sigma2 = R::rgamma(0.5, 1.0 / s2_sigma2);
-  double sigma2 = std::min(R::rgamma(0.5, 1.0 / lambda_sigma2), 5.0);
-  if (params.containsElementNamed("sigma2")) {
-    sigma2 = as<double>(params["sigma2"]);
-  }
-  double sigma = sqrt(sigma2);
-  bool sample_sigma2 = true;
-  if (params.containsElementNamed("sample_sigma2")) {
-    sample_sigma2 = as<bool>(params["sample_sigma2"]);
-  }
-
-  //
-  // Gaussian process sill parameter tau2 and hyperprior lambda_tau2
-  //
-
-  arma::vec lambda_tau2(d);
-  arma::vec tau2(d);
-  for (int j=0; j<d; j++) {
-    // lambda_tau2(j) = R::rgamma(0.5, 1.0 / s2_tau2);
-    // tau2(j) = std::max(std::min(R::rgamma(0.5, 1.0 / lambda_tau2(j)), 5.0), 1.0);
-    tau2(j) = std::max(std::min(R::rgamma(0.5, 1.0), 5.0), 1.0);
-  }
-  arma::vec tau = sqrt(tau2);
-  if (params.containsElementNamed("tau2")) {
-    tau2 = as<vec>(params["tau2"]);
-    tau = sqrt(tau2);
-  }
-  bool sample_tau2 = true;
-  if (params.containsElementNamed("sample_tau2")) {
-    sample_tau2 = as<bool>(params["sample_tau2"]);
-  }
-
-  //
   // Construct Gaussian Process Correlation matrices
   //
 
@@ -354,107 +227,42 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
   arma::mat c = exp( - D / phi);
   arma::mat Z = c * C_inv;
 
+  arma::mat zeta_pred = Z * eta_star * R_tau;
+
   // Initialize constant vectors
 
   arma::vec zero_knots(N_knots, arma::fill::zeros);
   arma::vec zero_knots_d(N_knots*d, arma::fill::zeros);
 
-  //
-  // Default predictive process random effect eta_star
-  //
-
-  arma::mat eta_star = mvrnormArmaChol(d, zero_knots, C_chol).t();
-  if (params.containsElementNamed("eta_star")) {
-    eta_star = as<mat>(params["eta_star"]);
-  }
-  bool sample_eta_star = true;
-  if (params.containsElementNamed("sample_eta_star")) {
-    sample_eta_star = as<bool>(params["sample_eta_star"]);
-  }
-  bool sample_eta_star_mh = false;
-  if (params.containsElementNamed("sample_eta_star_mh")) {
-    sample_eta_star_mh = as<bool>(params["sample_eta_star_mh"]);
-  }
-
-  //
-  // Default LKJ hyperparameter xi
-  //
-
-  arma::vec eta_vec(B);
-  int idx_eta = 0;
-  for (int j=0; j<(d-1); j++) {
-    for (int k=0; k<(d-j-1); k++) {
-      eta_vec(idx_eta+k) = eta + (d - 2.0 - j) / 2.0;
-    }
-    idx_eta += d-j-1;
-  }
-  arma::vec xi(B);
-  for (int b=0; b<B; b++) {
-    xi(b) = 2.0 * R::rbeta(eta_vec(b), eta_vec(b)) - 1.0;
-  }
-  arma::vec xi_tilde(B);
-  if (params.containsElementNamed("xi")) {
-    xi = as<vec>(params["xi"]);
-  }
-  for (int b=0; b<B; b++) {
-    xi_tilde(b) = 0.5 * (xi(b) + 1.0);
-  }
-  bool sample_xi = true;
-  if (params.containsElementNamed("sample_xi")) {
-    sample_xi = as<bool>(params["sample_xi"]);
-  }
-
-  Rcpp::List R_out = makeRLKJ(xi, d, true, true);
-  double log_jacobian = as<double>(R_out["log_jacobian"]);
-  arma::mat R = as<mat>(R_out["R"]);
-  arma::mat R_tau = R * diagmat(tau);
-  arma::mat zeta = Z * eta_star * R_tau;
-
   // setup save variables
-  int n_save = n_mcmc / n_thin;
-  arma::mat mu_save(n_save, d, arma::fill::zeros);
-  arma::cube zeta_save(n_save, N, d, arma::fill::zeros);
-  arma::cube eta_star_save(n_save, N_knots, d, arma::fill::zeros);
-  arma::cube Omega_save(n_save, d, d, arma::fill::zeros);
-  arma::cube C_save(n_save, N_knots, N_knots, arma::fill::zeros);
-  arma::cube c_save(n_save, N, N_knots, arma::fill::zeros);
-  arma::cube C_inv_save(n_save, N_knots, N_knots, arma::fill::zeros);
-  arma::cube Z_save(n_save, N, N_knots, arma::fill::zeros);
-  arma::cube R_save(n_save, d, d, arma::fill::zeros);
-  arma::cube R_tau_save(n_save, d, d, arma::fill::zeros);
-  arma::vec sigma2_save(n_save, arma::fill::zeros);
-  arma::mat tau2_save(n_save, d, arma::fill::zeros);
-  // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
-  // arma::vec s2_tau2_save(n_save, arma::fill::zeros);
-  arma::vec phi_save(n_save, arma::fill::zeros);
-  arma::mat X_save(n_save, N-N_obs, arma::fill::zeros);
-  arma::mat xi_save(n_save, B, arma::fill::zeros);
+  arma::cube zeta_pred_save(n_samples, N_pred, d, arma::fill::zeros);
+  arma::mat X_save(n_samples, N_pred, arma::fill::zeros);
 
   // initialize tuning
-  arma::vec X_tune(N-N_obs, arma::fill::ones);
+  arma::vec X_tune(N_pred, arma::fill::ones);
   X_tune *= X_tune_tmp;
-  arma::vec X_accept(N-N_obs, arma::fill::zeros);
-  arma::vec X_accept_batch(N-N_obs, arma::fill::zeros);
+  arma::vec X_accept(N_pred, arma::fill::zeros);
+  arma::vec X_accept_batch(N_pred, arma::fill::zeros);
 
-  Rprintf("Starting MCMC adaptation for chain %d, running for %d iterations n",
-          n_chain, n_adapt);
+  Rprintf("Starting predictions, running for %d iterations \n",
+          n_samples);
   // set up output messages
   std::ofstream file_out;
   file_out.open(file_name, std::ios_base::app);
-  file_out << "Starting MCMC adaptation for chain " << n_chain <<
-    ", running for " << n_adapt << " iterations n";
+  file_out << "Starting predictions, running for " << n_samples <<
+    " iterations \n";
   // close output file
   file_out.close();
 
+
   // Start MCMC chain
-  for (int k=0; k<n_adapt; k++) {
+  for (int k=0; k<n_samples; k++) {
     if ((k+1) % message == 0) {
-      Rprintf("MCMC Adaptive Iteration %dn", k+1);
+      Rprintf("Prediction iteration %d\n", k+1);
       // set up output messages
       std::ofstream file_out;
       file_out.open(file_name, std::ios_base::app);
-      file_out << "MCMC Adaptive Iteration " << k+1 << " for chain " <<
-        n_chain << "n";
+      file_out << "Prediction iteration " << k+1 << "\n";
       // close output file
       file_out.close();
     }
@@ -465,12 +273,29 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
     // sample X
     //
 
+    // Load MCMC estimated parameters
+    mu = mu_fit.row(k).t();
+    phi = phi_fit(k);
+    C = exp(- D_knots / phi);
+    C_chol = chol(C);
+    C_inv = inv_sympd(C);
+    c = exp( - D / phi);
+    Z = c * C_inv;
+    eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+    xi = xi_fit.row(k).t();
+    tau2 = tau2_fit.row(k).t();
+    R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
+    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+    sigma2 = sigma2_fit(k);
+    zeta_pred = Z * eta_star * R_tau;
+
+
     if (sample_X) {
       if (sample_X_mh) {
         // sample using Metropolis-Hastings
-        for (int i=N_obs; i<N; i++) {
-          arma::vec X_star = X;
-          X_star(i) += R::rnorm(0.0, X_tune(i-N_obs));
+        for (int i=0; i<N_pred; i++) {
+          arma::vec X_star = X_pred;
+          X_star(i) += R::rnorm(0.0, X_tune(i));
           // add in prior mean here
           arma::rowvec D_proposal = sqrt(pow(X_star(i) + mu_X - X_knots, 2)).t();
           if (corr_function == "gaussian") {
@@ -481,21 +306,21 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
           arma::rowvec Z_proposal = c_proposal * C_inv;
           arma::rowvec zeta_proposal = Z_proposal * eta_star * R_tau;
           double mh1 = R::dnorm(X_star(i), 0.0, s_X, true);
-          double mh2 = R::dnorm(X(i), 0.0, s_X, true);
+          double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
           // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
           // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
           for (int j=0; j<d; j++) {
-            mh1 += R::dnorm(Y(i, j), mu(j) + zeta_proposal(j), sigma, true);
-            mh2 += R::dnorm(Y(i, j), mu(j) + zeta(i, j), sigma, true);
+            mh1 += R::dnorm(Y_pred(i, j), mu(j) + zeta_proposal(j), sigma, true);
+            mh2 += R::dnorm(Y_pred(i, j), mu(j) + zeta_pred(i, j), sigma, true);
           }
           double mh = exp(mh1-mh2);
           if (mh > R::runif(0.0, 1.0)) {
-            X = X_star;
+            X_pred = X_star;
             D.row(i) = D_proposal;
             c.row(i) = c_proposal;
             Z.row(i) = Z_proposal;
-            zeta.row(i) = zeta_proposal;
-            X_accept_batch(i-N_obs) += 1.0 / 50.0;
+            zeta_pred.row(i) = zeta_proposal;
+            X_accept_batch(i) += 1.0 / 50.0;
           }
         }
         // update tuning
@@ -504,103 +329,18 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
         }
       } else {
         // sample using ESS
-        for (int i=N_obs; i<N; i++) {
+        for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X(i), X_prior, mu_X, X_knots, Y.row(i),
-                                     mu, eta_star, zeta.row(i), D.row(i), c.row(i),
+          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
+                                     mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
                                      R_tau, Z.row(i), phi, sigma,
-                                     C_inv, N_obs, N, d, file_name, n_chain,
+                                     C_inv, N_pred, d, file_name,
                                      corr_function);
-          X(i) = as<double>(ess_out["X"]);
+          X_pred(i) = as<double>(ess_out["X"]);
           D.row(i) = as<rowvec>(ess_out["D"]);
           c.row(i) = as<rowvec>(ess_out["c"]);
           Z.row(i) = as<rowvec>(ess_out["Z"]);
-          zeta.row(i) = as<rowvec>(ess_out["zeta"]);
-        }
-      }
-    }
-
-  }
-
-  Rprintf("Starting MCMC fit for chain %d, running for %d iterations n",
-          n_chain, n_mcmc);
-  // set up output messages
-  file_out.open(file_name, std::ios_base::app);
-  file_out << "Starting MCMC fit for chain " << n_chain <<
-    ", running for " << n_mcmc << " iterations n";
-  // close output file
-  file_out.close();
-
-  // Start MCMC chain
-  for (int k=0; k<n_mcmc; k++) {
-    if ((k+1) % message == 0) {
-      Rprintf("MCMC Fitting Iteration %dn", k+1);
-      // set up output messages
-      std::ofstream file_out;
-      file_out.open(file_name, std::ios_base::app);
-      file_out << "MCMC Fitting Iteration " << k+1 << " for chain " <<
-        n_chain << "n";
-      // close output file
-      file_out.close();
-    }
-
-    Rcpp::checkUserInterrupt();
-
-    //
-    // sample X
-    //
-
-    if (sample_X) {
-      if (sample_X_mh) {
-        // sample using Metropolis-Hastings
-        for (int i=N_obs; i<N; i++) {
-          arma::vec X_star = X;
-          X_star(i) += R::rnorm(0.0, X_tune(i-N_obs));
-          // add in prior mean here
-          arma::rowvec D_proposal = sqrt(pow(X_star(i) + mu_X - X_knots, 2)).t();
-          if (corr_function == "gaussian") {
-            D_proposal = pow(D_proposal, 2.0);
-          }
-          // arma::rowvec D_proposal = sqrt(pow(X_star(i) - X_knots, 2)).t();
-          arma::rowvec c_proposal = exp( - D_proposal / phi);
-          arma::rowvec Z_proposal = c_proposal * C_inv;
-          arma::rowvec zeta_proposal = Z_proposal * eta_star * R_tau;
-          double mh1 = R::dnorm(X_star(i), 0.0, s_X, true);
-          double mh2 = R::dnorm(X(i), 0.0, s_X, true);
-          // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
-          // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
-          for (int j=0; j<d; j++) {
-            mh1 += R::dnorm(Y(i, j), mu(j) + zeta_proposal(j), sigma, true);
-            mh2 += R::dnorm(Y(i, j), mu(j) + zeta(i, j), sigma, true);
-          }
-          double mh = exp(mh1-mh2);
-          if (mh > R::runif(0.0, 1.0)) {
-            X = X_star;
-            D.row(i) = D_proposal;
-            c.row(i) = c_proposal;
-            Z.row(i) = Z_proposal;
-            zeta.row(i) = zeta_proposal;
-            X_accept_batch(i-N_obs) += 1.0 / 50.0;
-          }
-        }
-        // update tuning
-        if ((k+1) % 50 == 0){
-          updateTuningVec(k, X_accept_batch, X_tune);
-        }
-      } else {
-        // sample using ESS
-        for (int i=N_obs; i<N; i++) {
-          double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X(i), X_prior, mu_X, X_knots, Y.row(i),
-                                     mu, eta_star, zeta.row(i), D.row(i), c.row(i),
-                                     R_tau, Z.row(i), phi, sigma,
-                                     C_inv, N_obs, N, d, file_name, n_chain,
-                                     corr_function);
-          X(i) = as<double>(ess_out["X"]);
-          D.row(i) = as<rowvec>(ess_out["D"]);
-          c.row(i) = as<rowvec>(ess_out["c"]);
-          Z.row(i) = as<rowvec>(ess_out["Z"]);
-          zeta.row(i) = as<rowvec>(ess_out["zeta"]);
+          zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
         }
       }
     }
@@ -609,26 +349,8 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
     // save variables
     //
 
-    if ((k + 1) % n_thin == 0) {
-      int save_idx = (k+1)/n_thin-1;
-      mu_save.row(save_idx) = mu.t();
-      eta_star_save.subcube(span(save_idx), span(), span()) = eta_star;
-      zeta_save.subcube(span(save_idx), span(), span()) = zeta;
-      Omega_save.subcube(span(save_idx), span(), span()) = R.t() * R;
-      phi_save(save_idx) = phi;
-      sigma2_save(save_idx) = sigma2;
-      tau2_save.row(save_idx) = tau2.t();
-      // lambda_tau2_save.row(save_idx) = lambda_tau2.t();
-      // s2_tau2_save(save_idx) = s2_tau2;
-      c_save.subcube(span(save_idx), span(), span()) = c;
-      C_save.subcube(span(save_idx), span(), span()) = C;
-      C_inv_save.subcube(span(save_idx), span(), span()) = C_inv;
-      Z_save.subcube(span(save_idx), span(), span()) = Z;
-      R_save.subcube(span(save_idx), span(), span()) = R;
-      R_tau_save.subcube(span(save_idx), span(), span()) = R_tau;
-      X_save.row(save_idx) = X.subvec(span(N_obs, N-1)).t() + mu_X;
-      xi_save.row(save_idx) = xi.t();
-    }
+    zeta_pred_save.subcube(span(k), span(), span()) = zeta_pred;
+    X_save.row(k) = X_pred.t() + mu_X;
   }
 
   // print accpetance rates
@@ -638,17 +360,6 @@ List predictRcppMVGP (const arma::mat& Y, const arma::vec& X_input, List params,
   file_out.close();
 
   return Rcpp::List::create(
-    _["mu"] = mu_save,
-    _["eta_star"] = eta_star_save,
-    _["zeta"] = zeta_save,
-    _["Omega"] = Omega_save,
-    _["phi"] = phi_save,
-    _["sigma2"] = sigma2_save,
-    _["tau2"] = tau2_save,
-    // _["lambda_tau2"] = lambda_tau2_save,
-    // _["s2_tau2"] = s2_tau2_save,
-    _["X"] = X_save,
-    _["R"] = R_save,
-    _["R_tau"] = R_tau_save,
-    _["xi"] = xi_save);
+    _["zeta_pred"] = zeta_pred_save,
+    _["X"] = X_save);
 }

@@ -150,8 +150,8 @@ mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
     .Call('BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
 }
 
-predictRcppMVGP <- function(Y, X_input, params, pool_s2_tau2 = TRUE, n_chain = 1L, file_name = "sim-fit") {
-    .Call('BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y, X_input, params, pool_s2_tau2, n_chain, file_name)
+predictRcppMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
+    .Call('BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppMVGP <- function(Y, X, params, n_chain = 1L, file_name = "sim-fit") {

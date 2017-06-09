@@ -28,7 +28,7 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
                          const arma::mat& zeta_current,
                          const arma::mat& R_tau_current,
                          const arma::mat& Z_current,
-                         const double& sigma2_current, const int& N_obs,
+                         const double& sigma2_current,
                          const int& N, const int& d, const int& j,
                          const std::string& file_name, const int& n_chain) {
   // eta_star_current is the current value of the joint multivariate predictive process
@@ -104,7 +104,6 @@ List mcmcRcppMVGP (const arma::mat& Y, const arma::vec& X, List params,
   // Load parameters
   int n_adapt = as<int>(params["n_adapt"]);
   int n_mcmc = as<int>(params["n_mcmc"]);
-  int N_obs = as<int>(params["N_obs"]);
   int n_thin = as<int>(params["n_thin"]);
 
   // set up dimensions
@@ -380,7 +379,6 @@ List mcmcRcppMVGP (const arma::mat& Y, const arma::vec& X, List params,
   // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
   // arma::vec s2_tau2_save(n_save, arma::fill::zeros);
   arma::vec phi_save(n_save, arma::fill::zeros);
-  arma::mat X_save(n_save, N-N_obs, arma::fill::zeros);
   arma::mat xi_save(n_save, B, arma::fill::zeros);
 
   // initialize tuning
@@ -563,7 +561,7 @@ List mcmcRcppMVGP (const arma::mat& Y, const arma::vec& X, List params,
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_eta_star(eta_star,  eta_star_prior,
                                                      Y, mu_mat, zeta, R_tau, Z,
-                                                     sigma2, N_obs, N, d, j,
+                                                     sigma2, N, d, j,
                                                      file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
@@ -858,7 +856,7 @@ List mcmcRcppMVGP (const arma::mat& Y, const arma::vec& X, List params,
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_eta_star(eta_star,  eta_star_prior,
                                                      Y, mu_mat, zeta, R_tau, Z,
-                                                     sigma2, N_obs, N, d, j,
+                                                     sigma2, N, d, j,
                                                      file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
