@@ -1,11 +1,12 @@
 sim_compositional_data <- function(
   N                           = 500,
+  N_pred                      = 25,
   d                           = 8,
   likelihood                  = "dirichlet-multinomial",
   expected_counts             = 100,
   function_type               = "basis",
-  df                          =6,
-  degree                      =3,
+  df                          = 6,
+  degree                      = 3,
   predictive_process          = TRUE,
   n_knots                     = 30,
   phi                         = 5,
@@ -42,65 +43,81 @@ sim_compositional_data <- function(
     mu[d] <-0
   }
   X <- rnorm(N, 0, 4)
+  X_pred <- rnorm(N_pred, 0, 4)
   ## initialized values in global environment before conditional statements
   zeta <- matrix(0, N, d)
+  zeta_pred <- matrix(0, N_pred, d)
   eta_star <- matrix(0, n_knots, d)
   beta <- matrix(0, df-1, d)
   epsilon <- matrix(0, N, d)
+  epsilon_pred <- matrix(0, N_pred, d)
   y <- matrix(0, N, d)
+  y_pred <- matrix(0, N_pred, d)
 
 
 
   if (function_type=="basis") {
     knots <- seq(min(X), max(X),
                  length=df-degree-1+2)[-c(1, df-degree-1+2)]
-    Xbs <- bs_cpp(X, df, knots, degree, FALSE, c(min(X), max(X)))
+    Xbs <- BayesComposition::bs_cpp(X, df, knots, degree, FALSE, c(min(X), max(X)))
+    Xbs_pred <- BayesComposition::bs_cpp(X_pred, df, knots, degree, FALSE, c(min(X), max(X)))
     beta <- matrix(rnorm((df-1)*d), df-1, d)
     if (likelihood=="multi-logit") {
       beta[, d] <- rep(0, df-1)
     }
     zeta <- Xbs %*% beta
+    zeta_pred <- Xbs_pred %*% beta
   } else if (function_type=="gaussian-process") {
     phi <- 5
     if (predictive_process) {
       ## simulate from the predictive process model
       n_knots <- 30
       X_knots <- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X), length=n_knots)
-      D_knots <- as.matrix(dist(X_knots))               ## distance among knots
-      D_interpolate <- as.matrix(rdist(X, X_knots))     ## distance from observed
-      ## locations to knots
+      D_knots <- as.matrix(dist(X_knots))                     ## distance among knots
+      D_interpolate <- as.matrix(rdist(X, X_knots))           ## distance from observed locations to knots
+      D_interpolate_pred <- as.matrix(rdist(X_pred, X_knots)) ## distance from unobserved locations to knots
       if (correlation_function == "gaussian") {
         C_knots <- exp(- D_knots^2 / phi) #+ diag(n_knots)* 1e-12
         c_knots <- exp( - D_interpolate^2 / phi)
+        c_knots_pred <- exp( - D_interpolate_pred^2 / phi)
       } else if (correlation_function == "exponential") {
         C_knots <- exp(- D_knots / phi) #+ diag(n_knots) * 1e-12
         c_knots <- exp( - D_interpolate / phi)
+        c_knots_pred <- exp( - D_interpolate_pred / phi)
       } else {
         stop ('Only "gaussian" and "exponential" covariance functions are supported')
       }
 
       C_knots_inv <- solve(C_knots)
       Z_knots <- c_knots %*% C_knots_inv
+      Z_knots_pred <- c_knots_pred %*% C_knots_inv
       eta_star <- t(mvnfast::rmvn(d, rep(0, n_knots), chol(C_knots),
                                   isChol=TRUE))
       zeta <- Z_knots %*% eta_star
+      zeta_pred <- Z_knots_pred %*% eta_star
       if (likelihood=="multi-logit") {
         eta_star[, d] <- rep(0, n_knots)
         zeta[, d] <- rep(0, N)
+        zeta_pred[, d] <- rep(0, N_pred)
       }
     } else {
       ## simulate from the full-rank model
       D <- as.matrix(rdist(X))
+      D_pred <- as.matrix(rdist(X_pred))
       if (correlation_fun == "gaussian") {
         C <- exp(- D^2 / phi) #+ diag(n_knots)* 1e-12
+        C_pred <- exp(- D_pred^2 / phi) #+ diag(n_knots)* 1e-12
       } else if (correlation_fun == "exponential") {
         C <- exp(- D / phi) #+ diag(n_knots) * 1e-12
+        C_pred <- exp(- D_pred / phi) #+ diag(n_knots) * 1e-12
       } else {
         stop ('Only "gaussian" and "exponential" covariance functions are supported')
       }
       zeta <- t(mvnfast::rmvn(d, rep(0, N), chol(C), isChol=TRUE))
+      zeta_prec <- t(mvnfast::rmvn(d, rep(0, N_pred), chol(C_pred), isChol=TRUE))
       if (likelihood=="multi-logit") {
         zeta[, d] <- rep(0, N)
+        zeta_pred[, d] <- rep(0, N_pred)
       }
     }
   } else {
@@ -128,6 +145,7 @@ sim_compositional_data <- function(
       tau_additive <- rgamma(d-1, 5, 5)
       R_tau_additive <- R_additive %*% diag(tau_additive)
       epsilon[, 1:(d-1)] <- mvnfast::rmvn(N, rep(0, d-1), R_tau_additive, isChol=TRUE)
+      epsilon_pred[, 1:(d-1)] <- mvnfast::rmvn(N_pred, rep(0, d-1), R_tau_additive, isChol=TRUE)
     } else {
       out_additive <- make_correlation_matrix(d, eta=1)
       R_additive <- out_additive$R
@@ -135,6 +153,7 @@ sim_compositional_data <- function(
       tau_additive <- rgamma(d, 5, 5)
       R_tau_additive <- R_additive %*% diag(tau_additive)
       epsilon <- mvnfast::rmvn(N, rep(0, d), R_tau_additive, isChol=TRUE)
+      epsilon_pred <- mvnfast::rmvn(N_pred, rep(0, d), R_tau_additive, isChol=TRUE)
     }
   }
 
@@ -159,6 +178,7 @@ sim_compositional_data <- function(
       tau_multiplicative <- rgamma(d-1, 5, 5)
       R_tau_multiplicative <- R_multiplicative %*% diag(tau_multiplicative)
       zeta[, 1:(d-1)] <- zeta[, 1:(d-1)] %*% R_tau_multiplicative
+      zeta_pred[, 1:(d-1)] <- zeta_pred[, 1:(d-1)] %*% R_tau_multiplicative
     } else {
       out_multiplicative <- make_correlation_matrix(d, eta=1)
       R_multiplicative <- out_multiplicative$R
@@ -166,23 +186,30 @@ sim_compositional_data <- function(
       tau_multiplicative <- rgamma(d, 5, 5)
       R_tau_multiplicative <- R_multiplicative %*% diag(tau_multiplicative)
       zeta <- zeta %*% R_tau_multiplicative
+      zeta_pred <- zeta_pred %*% R_tau_multiplicative
     }
   }
 
   if (likelihood=="gaussian") {
     if (additive_correlation) {
       alpha <- t(mu + t(zeta))
+      alpha_pred <- t(mu + t(zeta_pred))
       y <- t(mu + t(zeta) + t(epsilon))
+      y_pred <- t(mu + t(zeta_pred) + t(epsilon_pred))
       if (function_type=="basis") {
-      return(list(y=y, X=X, alpha=alpha, mu=mu, beta=beta, zeta=zeta,
-                  epsilon=epsilon, R_additive=R_additive,
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred,
+                  alpha=alpha, alpha_pred=alpha_pred, mu=mu, beta=beta,
+                  zeta=zeta, zeta_pred=zeta_pred, epsilon=epsilon,
+                  epsilon_pred=epsilon_pred, R_additive=R_additive,
                   tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,
                   tau_multiplicative=tau_multiplicative))
       } else {
-        return(list(y=y, X=X, mu=mu, phi=phi, eta_star=eta_star, zeta=zeta,
-                    epsilon=epsilon, R_additive=R_additive,
-                    tau_additive=tau_additive,
+        return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred,
+                    alpha=alpha, alpha_pred=alpha_pred, mu=mu, phi=phi,
+                    eta_star=eta_star, zeta=zeta, zeta_pred=zeta_pred,
+                    epsilon=epsilon, epsilon_pred=epsilon_pred,
+                    R_additive=R_additive, tau_additive=tau_additive,
                     R_multiplicative=R_multiplicative,
                     tau_multiplicative=tau_multiplicative))
       }
@@ -191,21 +218,33 @@ sim_compositional_data <- function(
     }
   } else if (likelihood=="multi-logit") {
     alpha <- matrix(0, N, d)
+    alpha_pred <- matrix(0, N_pred, d)
     N_i <- rpois(N, expected_counts)
+    N_i_pred <- rpois(N_pred, expected_counts)
     for (i in 1:N) {
       tmp <- exp(mu + zeta[i, ] + epsilon[i, ])
       alpha[i, ] <- tmp / sum(tmp)
       y[i, ] <- rmultinom(1, N_i[i], alpha[i, ])
     }
+    for (i in 1:N_pred) {
+      tmp <- exp(mu + zeta_pred[i, ] + epsilon_pred[i, ])
+      alpha_pred[i, ] <- tmp / sum(tmp)
+      y_pred[i, ] <- rmultinom(1, N_i_pred[i], alpha_pred[i, ])
+    }
     if (function_type=="basis") {
-      return(list(y=y, X=X, alpha=alpha, N_i=N_i, mu=mu, beta=beta,
-                  zeta=zeta, epsilon=epsilon, R_additive=R_additive,
-                  tau_additive=tau_additive,
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
+                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  mu=mu, beta=beta, zeta=zeta, zeta_pred=zeta_pred,
+                  epsilon=epsilon, epsilon_pred=epsilon_pred,
+                  R_additive=R_additive, tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,
                   tau_multiplicative=tau_multiplicative))
     } else {
-      return(list(y=y, X=X, alpha=alpha, N_i=N_i,  mu=mu, phi=phi,
-                  eta_star=eta_star, zeta=zeta, epsilon=epsilon,
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
+                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  mu=mu, phi=phi, eta_star=eta_star,
+                  zeta=zeta, zeta_pred=zeta_pred,
+                  epsilon=epsilon, epsilon_pred=epsilon_pred,
                   R_additive=R_additive,
                   tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,
@@ -213,21 +252,35 @@ sim_compositional_data <- function(
     }
   } else if (likelihood=="dirichlet-multinomial") {
     alpha <- exp(t(mu + t(zeta) + t(epsilon)))
+    alpha_pred <- exp(t(mu + t(zeta_pred) + t(epsilon_pred)))
     N_i <- rpois(N, expected_counts)
+    N_i_pred <- rpois(N_pred, expected_counts)
     for (i in 1:N) {
       tmp <- rgamma(d, alpha[i, ], 1)
       p <- tmp / sum(tmp)
       y[i, ] <- rmultinom(1, N_i[i], p)
     }
+    for (i in 1:N_pred) {
+      tmp <- rgamma(d, alpha_pred[i, ], 1)
+      p <- tmp / sum(tmp)
+      y_pred[i, ] <- rmultinom(1, N_i_pred[i], p)
+    }
     if (function_type=="basis") {
-      return(list(y=y, X=X, alpha=alpha, N_i=N_i, mu=mu, beta=beta,
-                  zeta=zeta, epsilon=epsilon, R_additive=R_additive,
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
+                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  mu=mu, beta=beta,
+                  zeta=zeta, zeta_pred=zeta_pred,
+                  epsilon=epsilon, epsilon_pred=epsilon_pred,
+                  R_additive=R_additive,
                   tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,
                   tau_multiplicative=tau_multiplicative))
     } else {
-      return(list(y=y, X=X, alpha=alpha, N_i=N_i,  mu=mu, phi=phi,
-                  eta_star=eta_star, zeta=zeta, epsilon=epsilon,
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
+                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  mu=mu, phi=phi, eta_star=eta_star,
+                  zeta=zeta, zeta_pred=zeta_pred,
+                  epsilon=epsilon, epsilon_pred=epsilon_pred,
                   R_additive=R_additive,
                   tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,

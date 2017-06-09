@@ -138,16 +138,24 @@ mcmcRcppDM <- function(Y, X, Y_pred, params, n_chain = 1L, pool_s2_tau2 = TRUE, 
     .Call('BayesComposition_mcmcRcppDM', PACKAGE = 'BayesComposition', Y, X, Y_pred, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
-mcmcRcppDMBasis <- function(Y, X, Y_pred, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, Y_pred, params, n_chain, pool_s2_tau2, file_name, corr_function)
+predictRcppDMBasis <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
+    .Call('BayesComposition_predictRcppDMBasis', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMBasis <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
     .Call('BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
 }
 
-mcmcRcppMVGP <- function(Y, X_input, params, pool_s2_tau2 = TRUE, n_chain = 1L, file_name = "sim-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppMVGP', PACKAGE = 'BayesComposition', Y, X_input, params, pool_s2_tau2, n_chain, file_name, corr_function)
+predictRcppMVGP <- function(Y, X_input, params, pool_s2_tau2 = TRUE, n_chain = 1L, file_name = "sim-fit") {
+    .Call('BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y, X_input, params, pool_s2_tau2, n_chain, file_name)
+}
+
+mcmcRcppMVGP <- function(Y, X, params, n_chain = 1L, file_name = "sim-fit") {
+    .Call('BayesComposition_mcmcRcppMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
 }
 
 mvrnormArma <- function(n, mu, Sigma) {

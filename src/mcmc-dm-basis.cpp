@@ -269,11 +269,17 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 
 // [[Rcpp::export]]
 List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
-                      const arma::mat& Y_pred, List params,
+                      List params,
                       int n_chain=1, bool pool_s2_tau2=true,
                       std::string file_name="DM-fit",
                       std::string corr_function="exponential") {
 
+  // List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
+  //                     const arma::mat& Y_pred,
+  //                     List params,
+  //                     int n_chain=1, bool pool_s2_tau2=true,
+  //                     std::string file_name="DM-fit",
+  //                     std::string corr_function="exponential") {
 
   // Load parameters
   int n_adapt = as<int>(params["n_adapt"]);
@@ -315,8 +321,8 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   double N = Y.n_rows;
   double d = Y.n_cols;
 
-  // set up dimensions
-  double N_pred = Y_pred.n_rows;
+  // // set up dimensions
+  // double N_pred = Y_pred.n_rows;
 
   // double B = Rf_choose(d, 2);
   double B = Rf_choose(d, 2);
@@ -327,11 +333,11 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     count(i) = sum(Y.row(i));
   }
 
-  // count - sum of counts at each site
-  arma::vec count_pred(N_pred);
-  for (int i=0; i<N_pred; i++) {
-    count_pred(i) = sum(Y_pred.row(i));
-  }
+  // // count - sum of counts at each site
+  // arma::vec count_pred(N_pred);
+  // for (int i=0; i<N_pred; i++) {
+  //   count_pred(i) = sum(Y_pred.row(i));
+  // }
 
   // constant vectors
   arma::mat I_d(d, d, arma::fill::eye);
@@ -395,11 +401,11 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   //
 
   // default to centered missing covariate
-  double mu_X = arma::mean(X);
+  // double mu_X = arma::mean(X);
   // default to scaled missing covariate
-  double s2_X = arma::var(X);
+  // double s2_X = arma::var(X);
 
-  double s_X = sqrt(s2_X);
+  // double s_X = sqrt(s2_X);
 
   bool sample_X = true;
   if (params.containsElementNamed("sample_X")) {
@@ -410,10 +416,10 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   if (params.containsElementNamed("sample_X_mh")) {
     sample_X_mh = as<bool>(params["sample_X_mh"]);
   }
-  arma::vec X_pred(N_pred, arma::fill::zeros);
-  for (int i=0; i<N_pred; i++) {
-    X_pred(i) = R::rnorm(0.0, s_X);
-  }
+  // arma::vec X_pred(N_pred, arma::fill::zeros);
+  // for (int i=0; i<N_pred; i++) {
+  //   X_pred(i) = R::rnorm(0.0, s_X);
+  // }
   double minX = min(X);
   if (params.containsElementNamed("minX")) {
     minX = as<double>(params["minX"]);
@@ -431,7 +437,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
   knots = knots.subvec(1, df-degree-1);
   arma::mat Xbs = bs_cpp(X, df, knots, degree, true, rangeX);
-  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, true, rangeX);
+  // arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, true, rangeX);
 
   //
   // initialize values
@@ -516,14 +522,14 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // arma::mat R_tau = R * diagmat(tau);
   // arma::mat zeta = Z * eta_star * R_tau;
   arma::mat alpha = exp(Xbs * beta);
-  arma::mat alpha_pred = exp(Xbs_pred * beta);
+  // arma::mat alpha_pred = exp(Xbs_pred * beta);
 
   // setup save variables
   int n_save = n_mcmc / n_thin;
   arma::cube alpha_save(n_save, N, d, arma::fill::zeros);
-  arma::cube alpha_pred_save(n_save, N_pred, d, arma::fill::zeros);
+  // arma::cube alpha_pred_save(n_save, N_pred, d, arma::fill::zeros);
   arma::cube beta_save(n_save, df, d, arma::fill::zeros);
-  arma::mat X_save(n_save, N_pred, arma::fill::zeros);
+  // arma::mat X_save(n_save, N_pred, arma::fill::zeros);
   // arma::mat tau2_save(n_save, d, arma::fill::zeros);
   // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
   // arma::vec s2_tau2_save(n_save, arma::fill::zeros);
@@ -553,10 +559,10 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // arma::mat xi_batch(50, B, arma::fill::zeros);
   // arma::mat Sigma_xi_tune(B, B, arma::fill::eye);
   // arma::mat Sigma_xi_tune_chol = chol(Sigma_xi_tune);
-  arma::vec X_tune(N_pred, arma::fill::ones);
-  X_tune *= X_tune_tmp;
-  arma::vec X_accept(N_pred, arma::fill::zeros);
-  arma::vec X_accept_batch(N_pred, arma::fill::zeros);
+  // arma::vec X_tune(N_pred, arma::fill::ones);
+  // X_tune *= X_tune_tmp;
+  // arma::vec X_accept(N_pred, arma::fill::zeros);
+  // arma::vec X_accept_batch(N_pred, arma::fill::zeros);
   arma::vec beta_accept(d, arma::fill::zeros);
   arma::vec beta_accept_batch(d, arma::fill::zeros);
   arma::cube beta_batch(50, df, d, arma::fill::zeros);
@@ -605,7 +611,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
                              lambda_beta_tune(j) * Sigma_beta_tune_chol.slice(j));
         arma::mat alpha_star = exp(Xbs * beta_star);
         // construct updated alpha for unobserved data
-        arma::mat alpha_pred_star = exp(Xbs_pred * beta_star);
+        // arma::mat alpha_pred_star = exp(Xbs_pred * beta_star);
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
         double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -614,7 +620,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
         if (mh > R::runif(0, 1.0)) {
           beta = beta_star;
           alpha = alpha_star;
-          alpha_pred = alpha_pred_star;
+          // alpha_pred = alpha_pred_star;
           beta_accept_batch(j) += 1.0 / 50.0;
         }
       }
@@ -784,18 +790,18 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     // sample X - ESS
     //
 
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
-                                   Y_pred.row(i), Xbs_pred.row(i), knots, d,
-                                   degree, df, rangeX, count_pred(i), file_name,
-                                   n_chain);
-        X_pred(i) = as<double>(ess_out["X"]);
-        Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
-      }
-    }
+    // if (sample_X) {
+    //   for (int i=0; i<N_pred; i++) {
+    //     double X_prior = R::rnorm(0.0, s_X);
+    //     Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
+    //                                Y_pred.row(i), Xbs_pred.row(i), knots, d,
+    //                                degree, df, rangeX, count_pred(i), file_name,
+    //                                n_chain);
+    //     X_pred(i) = as<double>(ess_out["X"]);
+    //     Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
+    //     alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+    //   }
+    // }
   }
 
   Rprintf("Starting MCMC fit for chain %d, running for %d iterations \n",
@@ -835,7 +841,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
 
         arma::mat alpha_star = exp(Xbs * beta_star);
         // construct updated alpha for unobserved data
-        arma::mat alpha_pred_star = exp(Xbs_pred * beta_star);
+        // arma::mat alpha_pred_star = exp(Xbs_pred * beta_star);
 
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
@@ -845,7 +851,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
         if (mh > R::runif(0, 1.0)) {
           beta = beta_star;
           alpha = alpha_star;
-          alpha_pred = alpha_pred_star;
+          // alpha_pred = alpha_pred_star;
           beta_accept(j) += 1.0 / n_mcmc;
         }
       }
@@ -989,18 +995,18 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     // sample X - ESS
     //
 
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
-                                   Y_pred.row(i), Xbs_pred.row(i), knots, d,
-                                   degree, df, rangeX, count_pred(i), file_name,
-                                   n_chain);
-        X_pred(i) = as<double>(ess_out["X"]);
-        Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
-      }
-    }
+    // if (sample_X) {
+    //   for (int i=0; i<N_pred; i++) {
+    //     double X_prior = R::rnorm(0.0, s_X);
+    //     Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
+    //                                Y_pred.row(i), Xbs_pred.row(i), knots, d,
+    //                                degree, df, rangeX, count_pred(i), file_name,
+    //                                n_chain);
+    //     X_pred(i) = as<double>(ess_out["X"]);
+    //     Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
+    //     alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+    //   }
+    // }
 
     //
     // save variables
@@ -1009,9 +1015,9 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     if ((k + 1) % n_thin == 0) {
       int save_idx = (k+1)/n_thin-1;
       alpha_save.subcube(span(save_idx), span(), span()) = alpha;
-      alpha_pred_save.subcube(span(save_idx), span(), span()) = alpha_pred;
+      // alpha_pred_save.subcube(span(save_idx), span(), span()) = alpha_pred;
       beta_save.subcube(span(save_idx), span(), span()) = beta;
-      X_save.row(save_idx) = X_pred.t() + mu_X;
+      // X_save.row(save_idx) = X_pred.t() + mu_X;
       // tau2_save.row(save_idx) = tau2.t();
       // lambda_tau2_save.row(save_idx) = lambda_tau2.t();
       // s2_tau2_save(save_idx) = s2_tau2;
@@ -1027,10 +1033,10 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     file_out << "Average acceptance rate for beta  = " << mean(beta_accept) <<
       " for chain " << n_chain << "\n";
   }
-  if (sample_X) {
-    file_out << "Average acceptance rate for X  = " << mean(X_accept) <<
-      " for chain " << n_chain << "\n";
-  }
+  // if (sample_X) {
+  //   file_out << "Average acceptance rate for X  = " << mean(X_accept) <<
+  //     " for chain " << n_chain << "\n";
+  // }
   // if (sample_xi) {
   //   file_out << "Average acceptance rate for xi  = " << mean(xi_accept) <<
   //     " for chain " << n_chain << "\n";
@@ -1046,9 +1052,10 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
 
   return Rcpp::List::create(
     _["alpha"] = alpha_save,
-    _["alpha_pred"] = alpha_pred_save,
-    _["beta"] = beta_save,
-    _["X"] = X_save);
+    // _["alpha_pred"] = alpha_pred_save,
+    _["beta"] = beta_save);
+    // ,
+    // _["X"] = X_save);
   // _["tau2"] = tau2_save,
   // _["lambda_tau2"] = lambda_tau2_save,
   // _["s2_tau2"] = s2_tau2_save,

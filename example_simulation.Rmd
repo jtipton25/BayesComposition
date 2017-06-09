@@ -8,6 +8,7 @@ output: html_document
 
 
 ```{r, warning=FALSE, message=FALSE}
+set.seed(11)
 library(BayesComposition)
 library(ggplot2)
 N <- 500
@@ -16,7 +17,7 @@ d <- 4
 
 
 
-## Gaussian Simulation
+## Gaussian Simulation using basis expansion and additive covariance
 
 ```{r, warning=FALSE, message=FALSE}
 dat <- sim_compositional_data(N=N, d=d, likelihood = "gaussian",
@@ -38,6 +39,32 @@ gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)
 multiplot(gsim1, gsim2, cols=1)
 ```
 
+
+
+## Gaussian Simulation using Gaussian processes and additive covariance
+
+```{r, warning=FALSE, message=FALSE}
+dat <- sim_compositional_data(N=N, d=d, likelihood = "gaussian",
+                              function_type = "gaussian-process",
+                              correlation_function = "exponential",
+                              multiplicative_correlation = TRUE,
+                              additive_correlation = TRUE)
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(dat$y),
+                          depth=rep(dat$X, times=d), alpha=c(dat$alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species, group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
 
 
 ## multi-logit simulation using basis functions without overdispersion
@@ -211,13 +238,13 @@ multiplot(gsim1, gsim2, cols=1)
 
 
 
-## dirichlet-multinomial simulation using Gaussian process without overdispersion
+## dirichlet-multinomial simulation using Gaussian process with overdispersion
 
 ```{r}
 dat <- sim_compositional_data(N=N, d=d, likelihood = "dirichlet-multinomial",
                               function_type = "gaussian-process",
                               correlation_function = "gaussian",
-                              additive_correlation = FALSE,
+                              additive_correlation = TRUE,
                               multiplicative_correlation = TRUE)
 
 y_dens <- matrix(0, N, d)

@@ -114,7 +114,7 @@ void updateTuningMVMat(const int& k, arma::vec& accept_rate,
   double gamma2 = 10.0 * gamma1;
   arma::vec adapt_factor = exp(gamma2 * (accept_rate - optimal_accept));
   // update the MV scaling parameter
-  lambda *= adapt_factor;
+  lambda %= adapt_factor;
   // center the batch of MCMC samples
   for (int l=0; l<p; l++) {
     for (int j=0; j<d; j++) {
