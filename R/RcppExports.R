@@ -120,6 +120,10 @@ makeRLKJ <- function(xi, d, cholesky = FALSE, jacobian = FALSE) {
     .Call('BayesComposition_makeRLKJ', PACKAGE = 'BayesComposition', xi, d, cholesky, jacobian)
 }
 
+makeCRPS <- function(estimate, truth, n_samps) {
+    .Call('BayesComposition_makeCRPS', PACKAGE = 'BayesComposition', estimate, truth, n_samps)
+}
+
 makeDistARMA <- function(coords1, coords2) {
     .Call('BayesComposition_makeDistARMA', PACKAGE = 'BayesComposition', coords1, coords2)
 }
@@ -134,8 +138,12 @@ makeQinv <- function(theta, t) {
     .Call('BayesComposition_makeQinv', PACKAGE = 'BayesComposition', theta, t)
 }
 
-mcmcRcppDM <- function(Y, X, Y_pred, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDM', PACKAGE = 'BayesComposition', Y, X, Y_pred, params, n_chain, pool_s2_tau2, file_name, corr_function)
+predictRcppDMMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
+    .Call('BayesComposition_predictRcppDMMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMMVGP <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasis <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {

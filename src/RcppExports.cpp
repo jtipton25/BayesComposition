@@ -456,6 +456,38 @@ RcppExport SEXP BayesComposition_makeRLKJ(SEXP xiSEXP, SEXP dSEXP, SEXP cholesky
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// makeCRPS
+arma::vec makeCRPS(const arma::mat& estimate, const arma::vec& truth, const int& n_samps);
+static SEXP BayesComposition_makeCRPS_try(SEXP estimateSEXP, SEXP truthSEXP, SEXP n_sampsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type estimate(estimateSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type truth(truthSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n_samps(n_sampsSEXP);
+    rcpp_result_gen = Rcpp::wrap(makeCRPS(estimate, truth, n_samps));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP BayesComposition_makeCRPS(SEXP estimateSEXP, SEXP truthSEXP, SEXP n_sampsSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(BayesComposition_makeCRPS_try(estimateSEXP, truthSEXP, n_sampsSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
 // makeDistARMA
 arma::mat makeDistARMA(const arma::mat& coords1, const arma::mat& coords2);
 static SEXP BayesComposition_makeDistARMA_try(SEXP coords1SEXP, SEXP coords2SEXP) {
@@ -518,21 +550,38 @@ RcppExport SEXP BayesComposition_makeQinv(SEXP thetaSEXP, SEXP tSEXP) {
     UNPROTECT(1);
     return rcpp_result_gen;
 }
-// mcmcRcppDM
-List mcmcRcppDM(const arma::mat& Y, const arma::vec& X, const arma::mat& Y_pred, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
-RcppExport SEXP BayesComposition_mcmcRcppDM(SEXP YSEXP, SEXP XSEXP, SEXP Y_predSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+// predictRcppDMMVGP
+List predictRcppDMMVGP(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMMVGP(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMMVGP(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMMVGP
+List mcmcRcppDMMVGP(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMMVGP(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
     Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
     Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
     Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
     Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
     Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
     Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
-    rcpp_result_gen = Rcpp::wrap(mcmcRcppDM(Y, X, Y_pred, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMMVGP(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1017,6 +1066,7 @@ static int BayesComposition_RcppExport_validate(const char* sig) {
         signatures.insert("arma::vec(*expit)(const arma::vec&)");
         signatures.insert("arma::mat(*makeUpperLKJ)(const arma::vec&,const int&)");
         signatures.insert("Rcpp::List(*makeRLKJ)(const arma::vec&,const int&,bool,bool)");
+        signatures.insert("arma::vec(*makeCRPS)(const arma::mat&,const arma::vec&,const int&)");
         signatures.insert("arma::mat(*makeDistARMA)(const arma::mat&,const arma::mat&)");
         signatures.insert("arma::mat(*makeQinv)(const double&,const int&)");
         signatures.insert("arma::mat(*mvrnormArma)(const int&,const arma::vec&,const arma::mat&)");
@@ -1051,6 +1101,7 @@ RcppExport SEXP BayesComposition_RcppExport_registerCCallable() {
     R_RegisterCCallable("BayesComposition", "BayesComposition_expit", (DL_FUNC)BayesComposition_expit_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_makeUpperLKJ", (DL_FUNC)BayesComposition_makeUpperLKJ_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_makeRLKJ", (DL_FUNC)BayesComposition_makeRLKJ_try);
+    R_RegisterCCallable("BayesComposition", "BayesComposition_makeCRPS", (DL_FUNC)BayesComposition_makeCRPS_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_makeDistARMA", (DL_FUNC)BayesComposition_makeDistARMA_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_makeQinv", (DL_FUNC)BayesComposition_makeQinv_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_mvrnormArma", (DL_FUNC)BayesComposition_mvrnormArma_try);
@@ -1067,48 +1118,4 @@ RcppExport SEXP BayesComposition_RcppExport_registerCCallable() {
     R_RegisterCCallable("BayesComposition", "BayesComposition_updateTuningMVMat", (DL_FUNC)BayesComposition_updateTuningMVMat_try);
     R_RegisterCCallable("BayesComposition", "BayesComposition_RcppExport_validate", (DL_FUNC)BayesComposition_RcppExport_validate);
     return R_NilValue;
-}
-
-static const R_CallMethodDef CallEntries[] = {
-    {"BayesComposition_basis_cpp", (DL_FUNC) &BayesComposition_basis_cpp, 4},
-    {"BayesComposition_bs_cpp", (DL_FUNC) &BayesComposition_bs_cpp, 6},
-    {"BayesComposition_colSums", (DL_FUNC) &BayesComposition_colSums, 1},
-    {"BayesComposition_d_half_cauchy", (DL_FUNC) &BayesComposition_d_half_cauchy, 3},
-    {"BayesComposition_dMVN", (DL_FUNC) &BayesComposition_dMVN, 4},
-    {"BayesComposition_dMVNChol", (DL_FUNC) &BayesComposition_dMVNChol, 4},
-    {"BayesComposition_LL_DM", (DL_FUNC) &BayesComposition_LL_DM, 5},
-    {"BayesComposition_LL_DM_row", (DL_FUNC) &BayesComposition_LL_DM_row, 4},
-    {"BayesComposition_logDet", (DL_FUNC) &BayesComposition_logDet, 1},
-    {"BayesComposition_logDetChol", (DL_FUNC) &BayesComposition_logDetChol, 1},
-    {"BayesComposition_logit", (DL_FUNC) &BayesComposition_logit, 1},
-    {"BayesComposition_expit", (DL_FUNC) &BayesComposition_expit, 1},
-    {"BayesComposition_makeUpperLKJ", (DL_FUNC) &BayesComposition_makeUpperLKJ, 2},
-    {"BayesComposition_makeRLKJ", (DL_FUNC) &BayesComposition_makeRLKJ, 4},
-    {"BayesComposition_makeDistARMA", (DL_FUNC) &BayesComposition_makeDistARMA, 2},
-    {"BayesComposition_makeQinv", (DL_FUNC) &BayesComposition_makeQinv, 2},
-    {"BayesComposition_mcmcRcppDM", (DL_FUNC) &BayesComposition_mcmcRcppDM, 8},
-    {"BayesComposition_predictRcppDMBasis", (DL_FUNC) &BayesComposition_predictRcppDMBasis, 8},
-    {"BayesComposition_mcmcRcppDMBasis", (DL_FUNC) &BayesComposition_mcmcRcppDMBasis, 7},
-    {"BayesComposition_mcmcRcppGAM", (DL_FUNC) &BayesComposition_mcmcRcppGAM, 5},
-    {"BayesComposition_predictRcppMVGP", (DL_FUNC) &BayesComposition_predictRcppMVGP, 8},
-    {"BayesComposition_mcmcRcppMVGP", (DL_FUNC) &BayesComposition_mcmcRcppMVGP, 5},
-    {"BayesComposition_mvrnormArma", (DL_FUNC) &BayesComposition_mvrnormArma, 3},
-    {"BayesComposition_mvrnormArmaVec", (DL_FUNC) &BayesComposition_mvrnormArmaVec, 2},
-    {"BayesComposition_mvrnormArmaChol", (DL_FUNC) &BayesComposition_mvrnormArmaChol, 3},
-    {"BayesComposition_mvrnormArmaVecChol", (DL_FUNC) &BayesComposition_mvrnormArmaVecChol, 2},
-    {"BayesComposition_rMVNArma", (DL_FUNC) &BayesComposition_rMVNArma, 2},
-    {"BayesComposition_rMVNArmaScalar", (DL_FUNC) &BayesComposition_rMVNArmaScalar, 2},
-    {"BayesComposition_seq_lenC", (DL_FUNC) &BayesComposition_seq_lenC, 1},
-    {"BayesComposition_updateTuning", (DL_FUNC) &BayesComposition_updateTuning, 3},
-    {"BayesComposition_updateTuningVec", (DL_FUNC) &BayesComposition_updateTuningVec, 3},
-    {"BayesComposition_updateTuningMat", (DL_FUNC) &BayesComposition_updateTuningMat, 3},
-    {"BayesComposition_updateTuningMV", (DL_FUNC) &BayesComposition_updateTuningMV, 6},
-    {"BayesComposition_updateTuningMVMat", (DL_FUNC) &BayesComposition_updateTuningMVMat, 6},
-    {"BayesComposition_RcppExport_registerCCallable", (DL_FUNC) &BayesComposition_RcppExport_registerCCallable, 0},
-    {NULL, NULL, 0}
-};
-
-RcppExport void R_init_BayesComposition(DllInfo *dll) {
-    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
-    R_useDynamicSymbols(dll, FALSE);
 }

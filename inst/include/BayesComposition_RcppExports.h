@@ -291,6 +291,25 @@ namespace BayesComposition {
         return Rcpp::as<Rcpp::List >(rcpp_result_gen);
     }
 
+    inline arma::vec makeCRPS(const arma::mat& estimate, const arma::vec& truth, const int& n_samps) {
+        typedef SEXP(*Ptr_makeCRPS)(SEXP,SEXP,SEXP);
+        static Ptr_makeCRPS p_makeCRPS = NULL;
+        if (p_makeCRPS == NULL) {
+            validateSignature("arma::vec(*makeCRPS)(const arma::mat&,const arma::vec&,const int&)");
+            p_makeCRPS = (Ptr_makeCRPS)R_GetCCallable("BayesComposition", "BayesComposition_makeCRPS");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_makeCRPS(Rcpp::wrap(estimate), Rcpp::wrap(truth), Rcpp::wrap(n_samps));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<arma::vec >(rcpp_result_gen);
+    }
+
     inline arma::mat makeDistARMA(const arma::mat& coords1, const arma::mat& coords2) {
         typedef SEXP(*Ptr_makeDistARMA)(SEXP,SEXP);
         static Ptr_makeDistARMA p_makeDistARMA = NULL;

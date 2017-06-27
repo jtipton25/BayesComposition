@@ -139,116 +139,116 @@ Rcpp::List ess (const arma::mat& eta_star_current,
       _["alpha"] = alpha_ess));
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
-///////////////////////////////////////////////////////////////////////////////
-
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
-                  const double& mu_X, const arma::vec& X_knots,
-                  const arma::rowvec& y_current,
-                  const arma::rowvec& mu_current,
-                  const arma::mat& eta_star_current,
-                  const arma::rowvec& alpha_current,
-                  const arma::rowvec& D_current,
-                  const arma::rowvec& c_current, const arma::mat& R_tau_current,
-                  const arma::rowvec& Z_current, const double& phi_current,
-                  const arma::mat C_inv_current,
-                  const int& d, const double& count_double,
-                  const std::string& file_name, const int& n_chain,
-                  const std::string& corr_function) {
-  // eta_star_current is the current value of the joint multivariate predictive process
-  // prior_sample is a sample from the prior joing multivariate predictive process
-  // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
-  // Z_current is the current predictive process linear
-
-  // calculate log likelihood of current value
-  double current_log_like = LL_DM_row(alpha_current, y_current, d, count_double);
-  double hh = log(R::runif(0.0, 1.0)) + current_log_like;
-
-  // Setup a bracket and pick a first proposal
-  // Bracket whole ellipse with both edges at first proposed point
-  double phi_angle = R::runif(0.0, 1.0) * 2.0 * arma::datum::pi;
-  double phi_angle_min = phi_angle - 2.0 * arma::datum::pi;
-  double phi_angle_max = phi_angle;
-
-  // set up save variables
-  double X_ess = X_current;
-  arma::rowvec D_ess = D_current;
-  arma::rowvec c_ess = c_current;
-  arma::rowvec Z_ess = Z_current;
-  arma::rowvec zeta_ess = alpha_current;
-  arma::rowvec alpha_ess = alpha_current;
-  bool test = true;
-
-  // Slice sampling loop
-  while (test) {
-    // compute proposal for angle difference and check to see if it is on the slice
-    double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
-    // adjust for non-zero mean
-    double X_tilde = X_proposal + mu_X;
-    arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2.0)).t();
-    if (corr_function == "gaussian") {
-      D_proposal = pow(D_proposal, 2.0);
-    }
-    arma::rowvec c_proposal = exp( - D_proposal / phi_current);
-    arma::rowvec Z_proposal = c_proposal * C_inv_current;
-    arma::rowvec zeta_proposal = Z_proposal * eta_star_current * R_tau_current;
-    arma::rowvec alpha_proposal = exp(mu_current + zeta_proposal);
-
-    // calculate log likelihood of proposed value
-    double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d, count_double);
-    // control to limit alpha from getting unreasonably large
-    if (alpha_proposal.max() > pow(10.0, 10.0) ) {
-      if (phi_angle > 0.0) {
-        phi_angle_max = phi_angle;
-      } else if (phi_angle < 0.0) {
-        phi_angle_min = phi_angle;
-      } else {
-        Rprintf("Bug - ESS for X shrunk to current position with large alpha \n");
-        // set up output messages
-        std::ofstream file_out;
-        file_out.open(file_name, std::ios_base::app);
-        file_out << "Bug - ESS for X shrunk to current position with large alpha on chain " << n_chain << "\n";
-        // close output file
-        file_out.close();
-        test = false;
-      }
-    } else {
-      if (proposal_log_like > hh) {
-        // proposal is on the slice
-        X_ess = X_proposal;
-        D_ess = D_proposal;
-        c_ess = c_proposal;
-        Z_ess = Z_proposal;
-        zeta_ess = zeta_proposal;
-        alpha_ess = alpha_proposal;
-        test = false;
-      } else if (phi_angle > 0.0) {
-        phi_angle_max = phi_angle;
-      } else if (phi_angle < 0.0) {
-        phi_angle_min = phi_angle;
-      } else {
-        Rprintf("Bug - ESS for X shrunk to current position \n");
-        // set up output messages
-        std::ofstream file_out;
-        file_out.open(file_name, std::ios_base::app);
-        file_out << "Bug - ESS for X shrunk to current position on chain " << n_chain << "\n";
-        // close output file
-        file_out.close();
-        test = false;
-      }
-    }
-    // Propose new angle difference
-    phi_angle = R::runif(0.0, 1.0) * (phi_angle_max - phi_angle_min) + phi_angle_min;
-  }
-  return(Rcpp::List::create(
-      _["X"] = X_ess,
-      _["D"] = D_ess,
-      _["c"] = c_ess,
-      _["Z"] = Z_ess,
-      _["zeta"] = zeta_ess,
-      _["alpha"] = alpha_ess));
-}
+// ///////////////////////////////////////////////////////////////////////////////
+// ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
+// ///////////////////////////////////////////////////////////////////////////////
+//
+// Rcpp::List ess_X (const double& X_current, const double& X_prior,
+//                   const double& mu_X, const arma::vec& X_knots,
+//                   const arma::rowvec& y_current,
+//                   const arma::rowvec& mu_current,
+//                   const arma::mat& eta_star_current,
+//                   const arma::rowvec& alpha_current,
+//                   const arma::rowvec& D_current,
+//                   const arma::rowvec& c_current, const arma::mat& R_tau_current,
+//                   const arma::rowvec& Z_current, const double& phi_current,
+//                   const arma::mat C_inv_current,
+//                   const int& d, const double& count_double,
+//                   const std::string& file_name, const int& n_chain,
+//                   const std::string& corr_function) {
+//   // eta_star_current is the current value of the joint multivariate predictive process
+//   // prior_sample is a sample from the prior joing multivariate predictive process
+//   // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
+//   // Z_current is the current predictive process linear
+//
+//   // calculate log likelihood of current value
+//   double current_log_like = LL_DM_row(alpha_current, y_current, d, count_double);
+//   double hh = log(R::runif(0.0, 1.0)) + current_log_like;
+//
+//   // Setup a bracket and pick a first proposal
+//   // Bracket whole ellipse with both edges at first proposed point
+//   double phi_angle = R::runif(0.0, 1.0) * 2.0 * arma::datum::pi;
+//   double phi_angle_min = phi_angle - 2.0 * arma::datum::pi;
+//   double phi_angle_max = phi_angle;
+//
+//   // set up save variables
+//   double X_ess = X_current;
+//   arma::rowvec D_ess = D_current;
+//   arma::rowvec c_ess = c_current;
+//   arma::rowvec Z_ess = Z_current;
+//   arma::rowvec zeta_ess = alpha_current;
+//   arma::rowvec alpha_ess = alpha_current;
+//   bool test = true;
+//
+//   // Slice sampling loop
+//   while (test) {
+//     // compute proposal for angle difference and check to see if it is on the slice
+//     double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
+//     // adjust for non-zero mean
+//     double X_tilde = X_proposal + mu_X;
+//     arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2.0)).t();
+//     if (corr_function == "gaussian") {
+//       D_proposal = pow(D_proposal, 2.0);
+//     }
+//     arma::rowvec c_proposal = exp( - D_proposal / phi_current);
+//     arma::rowvec Z_proposal = c_proposal * C_inv_current;
+//     arma::rowvec zeta_proposal = Z_proposal * eta_star_current * R_tau_current;
+//     arma::rowvec alpha_proposal = exp(mu_current + zeta_proposal);
+//
+//     // calculate log likelihood of proposed value
+//     double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d, count_double);
+//     // control to limit alpha from getting unreasonably large
+//     if (alpha_proposal.max() > pow(10.0, 10.0) ) {
+//       if (phi_angle > 0.0) {
+//         phi_angle_max = phi_angle;
+//       } else if (phi_angle < 0.0) {
+//         phi_angle_min = phi_angle;
+//       } else {
+//         Rprintf("Bug - ESS for X shrunk to current position with large alpha \n");
+//         // set up output messages
+//         std::ofstream file_out;
+//         file_out.open(file_name, std::ios_base::app);
+//         file_out << "Bug - ESS for X shrunk to current position with large alpha on chain " << n_chain << "\n";
+//         // close output file
+//         file_out.close();
+//         test = false;
+//       }
+//     } else {
+//       if (proposal_log_like > hh) {
+//         // proposal is on the slice
+//         X_ess = X_proposal;
+//         D_ess = D_proposal;
+//         c_ess = c_proposal;
+//         Z_ess = Z_proposal;
+//         zeta_ess = zeta_proposal;
+//         alpha_ess = alpha_proposal;
+//         test = false;
+//       } else if (phi_angle > 0.0) {
+//         phi_angle_max = phi_angle;
+//       } else if (phi_angle < 0.0) {
+//         phi_angle_min = phi_angle;
+//       } else {
+//         Rprintf("Bug - ESS for X shrunk to current position \n");
+//         // set up output messages
+//         std::ofstream file_out;
+//         file_out.open(file_name, std::ios_base::app);
+//         file_out << "Bug - ESS for X shrunk to current position on chain " << n_chain << "\n";
+//         // close output file
+//         file_out.close();
+//         test = false;
+//       }
+//     }
+//     // Propose new angle difference
+//     phi_angle = R::runif(0.0, 1.0) * (phi_angle_max - phi_angle_min) + phi_angle_min;
+//   }
+//   return(Rcpp::List::create(
+//       _["X"] = X_ess,
+//       _["D"] = D_ess,
+//       _["c"] = c_ess,
+//       _["Z"] = Z_ess,
+//       _["zeta"] = zeta_ess,
+//       _["alpha"] = alpha_ess));
+// }
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -256,11 +256,11 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 ///////////////////////////////////////////////////////////////////////////////
 
 // [[Rcpp::export]]
-List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
-                 const arma::mat& Y_pred, List params,
-                 int n_chain=1, bool pool_s2_tau2=true,
-                 std::string file_name="DM-fit",
-                 std::string corr_function="exponential") {
+List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
+                     List params,
+                     int n_chain=1, bool pool_s2_tau2=true,
+                     std::string file_name="DM-fit",
+                     std::string corr_function="exponential") {
 
   // Load parameters
   int n_adapt = as<int>(params["n_adapt"]);
@@ -270,19 +270,13 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   // set up dimensions
   double N = Y.n_rows;
   double d = Y.n_cols;
-  double N_pred = Y_pred.n_rows;
   double B = Rf_choose(d, 2);
-  Rcout << "1" << "\n";
+
   // count - sum of counts at each site
   arma::vec count(N);
   for (int i=0; i<N; i++) {
     count(i) = sum(Y.row(i));
   }
-  arma::vec count_pred(N_pred);
-  for (int i=0; i<N_pred; i++) {
-    count_pred(i) = sum(Y_pred.row(i));
-  }
-
   // add in option for reference category for Sigma
   bool Sigma_reference_category = false;
   if (params.containsElementNamed("Sigma_reference_category")) {
@@ -292,7 +286,7 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   // predictive process knots
   arma::vec X_knots = as<vec>(params["X_knots"]);
   double N_knots = X_knots.n_elem;
-  Rcout << "1" << "\n";
+
   // constant vectors
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
@@ -390,26 +384,16 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   //
 
   // default to centered missing covariate
-  double mu_X = arma::mean(X);
+  // double mu_X = arma::mean(X);
   // default to scaled missing covariate
-  double s2_X = arma::var(X);
-  double s_X = sqrt(s2_X);
+  // double s2_X = arma::var(X);
+  // double s_X = sqrt(s2_X);
 
-  bool sample_X = true;
-  if (params.containsElementNamed("sample_X")) {
-    sample_X = as<bool>(params["sample_X"]);
-  }
-  arma::vec X_pred(N_pred, arma::fill::zeros);
-  for (int i=0; i<N_pred; i++) {
-    X_pred(i) = R::rnorm(0.0, s_X);
-  }
 
   arma::mat D = makeDistARMA(X, X_knots);
-  arma::mat D_pred = makeDistARMA(X_pred, X_knots);
   arma::mat D_knots = makeDistARMA(X_knots, X_knots);
   if (corr_function == "gaussian") {
     D = pow(D, 2.0);
-    D_pred = pow(D_pred, 2.0);
     D_knots = pow(D_knots, 2.0);
   } else if (corr_function != "exponential") {
     stop ("the only valid correlation functions are exponential and gaussian");
@@ -438,10 +422,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   arma::mat mu_mat(N, d);
   for (int i=0; i<N; i++) {
     mu_mat.row(i) = mu.t();
-  }
-  arma::mat mu_mat_pred(N_pred, d);
-  for (int i=0; i<N_pred; i++) {
-    mu_mat_pred.row(i) = mu.t();
   }
 
   //
@@ -490,8 +470,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   arma::mat C_inv = inv_sympd(C);
   arma::mat c = exp( - D / phi);
   arma::mat Z = c * C_inv;
-  arma::mat c_pred = exp( - D_pred / phi);
-  arma::mat Z_pred = c_pred * C_inv;
 
   //
   // Default predictive process random effect eta_star
@@ -542,23 +520,19 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
   arma::mat R = as<mat>(R_out["R"]);
   arma::mat R_tau = R * diagmat(tau);
   arma::mat zeta = Z * eta_star * R_tau;
-  arma::mat zeta_pred = Z_pred * eta_star * R_tau;
   arma::mat alpha = exp(mu_mat + zeta);
-  arma::mat alpha_pred = exp(mu_mat_pred + zeta_pred);
 
   // setup save variables
   int n_save = n_mcmc / n_thin;
   arma::cube alpha_save(n_save, N, d, arma::fill::zeros);
-  arma::cube alpha_pred_save(n_save, N_pred, d, arma::fill::zeros);
   arma::cube zeta_save(n_save, N, d, arma::fill::zeros);
-  arma::cube zeta_pred_save(n_save, N_pred, d, arma::fill::zeros);
   arma::mat mu_save(n_save, d, arma::fill::zeros);
-  arma::mat X_save(n_save, N_pred, arma::fill::zeros);
   arma::mat tau2_save(n_save, d, arma::fill::zeros);
   arma::vec s2_tau2_save(n_save, arma::fill::zeros);
   arma::vec phi_save(n_save, arma::fill::zeros);
   arma::cube eta_star_save(n_save, N_knots, d, arma::fill::zeros);
   arma::cube R_save(n_save, d, d, arma::fill::zeros);
+  arma::cube R_tau_save(n_save, d, d, arma::fill::zeros);
   arma::mat xi_save(n_save, B, arma::fill::zeros);
 
   // initialize tuning
@@ -657,12 +631,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
                        Sigma_mu_tune, Sigma_mu_tune_chol);
       }
     }
-    // update predictive random effects
-    arma::mat mu_mat_pred(N_pred, d);
-    for (int i=0; i<N_pred; i++) {
-      mu_mat_pred.row(i) = mu.t();
-    }
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample phi
@@ -704,11 +672,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         updateTuning(k, phi_accept_batch, phi_tune);
       }
     }
-    // update predictive random effects
-    c_pred = exp(- D_pred / phi);
-    Z_pred = c_pred * C_inv;
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample eta_star
@@ -757,9 +720,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         }
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample tau2
@@ -809,9 +769,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
                        Sigma_tau2_tune, Sigma_tau2_tune_chol);
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample lambda_tau2
@@ -892,33 +849,7 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
                        Sigma_xi_tune, Sigma_xi_tune_chol);
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
-
-    //
-    // sample X - ESS
-    //
-
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        // double X_prior = R::rnorm(mu_X, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots,
-                                   Y_pred.row(i), mu.t(), eta_star,
-                                   alpha_pred.row(i), D_pred.row(i),
-                                   c_pred.row(i), R_tau, Z_pred.row(i), phi,
-                                   C_inv, d, count_pred(i),
-                                   file_name, n_chain, corr_function);
-        X_pred(i) = as<double>(ess_out["X"]);
-        D_pred.row(i) = as<rowvec>(ess_out["D"]);
-        c_pred.row(i) = as<rowvec>(ess_out["c"]);
-        Z_pred.row(i) = as<rowvec>(ess_out["Z"]);
-        zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
-      }
-    }
-
+  // end of adaptation loop
   }
 
   Rprintf("Starting MCMC fit for chain %d, running for %d iterations \n",
@@ -971,12 +902,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         mu_accept += 1.0 / n_mcmc;
       }
     }
-    // update predictive random effects
-    arma::mat mu_mat_pred(N_pred, d);
-    for (int i=0; i<N_pred; i++) {
-      mu_mat_pred.row(i) = mu.t();
-    }
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample phi
@@ -1014,11 +939,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         }
       }
     }
-    // update predictive random effects
-    c_pred = exp(- D_pred / phi);
-    Z_pred = c_pred * C_inv;
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample eta_star
@@ -1060,9 +980,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         }
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample tau2
@@ -1101,9 +1018,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         }
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
 
     //
     // sample lambda_tau2
@@ -1174,32 +1088,6 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
         }
       }
     }
-    // update predictive random effects
-    zeta_pred = Z_pred * eta_star * R_tau;
-    alpha_pred = exp(mu_mat_pred + zeta_pred);
-
-    //
-    // sample X - ESS
-    //
-
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        // double X_prior = R::rnorm(mu_X, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots,
-                                   Y_pred.row(i), mu.t(), eta_star,
-                                   alpha_pred.row(i), D_pred.row(i),
-                                   c_pred.row(i), R_tau, Z_pred.row(i), phi,
-                                   C_inv, d, count_pred(i),
-                                   file_name, n_chain, corr_function);
-        X_pred(i) = as<double>(ess_out["X"]);
-        D_pred.row(i) = as<rowvec>(ess_out["D"]);
-        c_pred.row(i) = as<rowvec>(ess_out["c"]);
-        Z_pred.row(i) = as<rowvec>(ess_out["Z"]);
-        zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
-      }
-    }
 
     //
     // save variables
@@ -1208,17 +1096,16 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
     if ((k + 1) % n_thin == 0) {
       int save_idx = (k+1)/n_thin-1;
       alpha_save.subcube(span(save_idx), span(), span()) = alpha;
-      alpha_pred_save.subcube(span(save_idx), span(), span()) = alpha_pred;
       zeta_save.subcube(span(save_idx), span(), span()) = zeta;
-      zeta_pred_save.subcube(span(save_idx), span(), span()) = zeta_pred;
-      X_save.row(save_idx) = X_pred.t() + mu_X;
       phi_save(save_idx) = phi;
       mu_save.row(save_idx) = mu.t();
       tau2_save.row(save_idx) = tau2.t();
       eta_star_save.subcube(span(save_idx), span(), span()) = eta_star;
       R_save.subcube(span(save_idx), span(), span()) = R;
+      R_tau_save.subcube(span(save_idx), span(), span()) = R_tau;
       xi_save.row(save_idx) = xi.t();
     }
+    // end of MCMC fitting loop
   }
 
   // print accpetance rates
@@ -1229,8 +1116,10 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
       " for chain " << n_chain << "\n";
   }
   if (sample_eta_star) {
-    file_out << "Average acceptance rate for eta_star  = " << mean(eta_star_accept) <<
-      " for chain " << n_chain << "\n";
+    if (sample_eta_star_mh) {
+      file_out << "Average acceptance rate for eta_star  = " << mean(eta_star_accept) <<
+        " for chain " << n_chain << "\n";
+    }
   }
   if (sample_phi) {
     file_out << "Average acceptance rate for phi  = " << mean(phi_accept) <<
@@ -1255,12 +1144,10 @@ List mcmcRcppDM (const arma::mat& Y, const arma::vec& X,
     _["mu"] = mu_save,
     _["eta_star"] = eta_star_save,
     _["zeta"] = zeta_save,
-    _["zeta_pred"] = zeta_pred_save,
     _["alpha"] = alpha_save,
-    _["alpha_pred"] = alpha_pred_save,
     _["phi"] = phi_save,
     _["tau2"] = tau2_save,
-    _["X"] = X_save,
     _["R"] = R_save,
+    _["R_tau"] = R_tau_save,
     _["xi"] = xi_save);
 }
