@@ -242,8 +242,10 @@ source("~/testate/data/join-testate-caribou.R")
 ##
 ## align names between data sets
 ## get expert input here!!
+## We are removing many species
 ##
 
+N_recon_full <- sum(y_recon)
 
 idx1 <- colnames(y) %in% names(y_recon)
 # names(y_recon)[!idx1]
@@ -264,6 +266,12 @@ y_recon <- y_recon[, order(colnames(y_recon))]
 
 ## check the names and orderings
 all.equal(colnames(y), colnames(y_recon))
+
+## Note: we are reducing the testate counts by about 25%...
+N_recon_reduced <- sum(y_recon)
+N_recon_full - N_recon_reduced
+
+
 ```
 
 
