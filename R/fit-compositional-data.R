@@ -1,21 +1,7 @@
 fit_compositional_data <- function(
   y,
   X,
-  params                = list("n_adapt"                     = 500,
-                               "n_mcmc"                      = 500,
-                               "n_thin"                      = 1,
-                               df                            = 6,
-                               degree                        = 3,
-                               n_knots                       = 30,
-                               X_knots                       = NULL,
-                               correlation_function          = NULL,
-                               additive_correlation          = TRUE,
-                               multiplicative_correlation    = TRUE),
-  likelihood            = "multi-logit",
-  function_type         = "basis",
-
-  n_chains              = 4,
-  n_cores               = 1,
+  params,
   progress_directory     = "./",
   progress_file         = "progress.txt",
   save_directory        = "./",
@@ -51,6 +37,10 @@ fit_compositional_data <- function(
   ## save_file is the name of the MCMC samples file. this file ends in ".RData"
 
   library(snowfall)
+  ## make sure y is a matrix
+  if (!is.matrix(y)) {
+    y <- as.matrix(y)
+  }
 
   ## create directory for progress file
   if (!dir.exists(progress_directory)) {
@@ -63,25 +53,92 @@ fit_compositional_data <- function(
     dir.create(save_directory)
   }
 
-  ## make X_knots locations for predictive process
+## if not given, set default parameter for number of adaptation iterations
+  if(is.null(params$n_adapt)) {
+    params$n_adapt <- 500
+    params$n_adapt <<- 500
+  }
 
-  if (is.null(params$X_knots) & function_type == "gaussian-process") {
-    params$X_knots <- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X), length=n_knots)
+  ## if not given, set default parameter for number of mcmc iterations
+  if(is.null(params$n_mcmc)) {
+    params$n_mcmc <- 500
+    params$n_mcmc <<- 500
+  }
+
+  ## if not given, set default parameter of mcmc iterations to thin
+  if(is.null(params$n_thin)) {
+    params$n_thin <- 1
+    params$n_thin <<- 1
+  }
+
+  ## if not given, set default parameter of mcmc iteration to output file
+  if(is.null(params$message)) {
+    params$message <- 1000
+    params$message <<- 1000
+  }
+
+  ## if not given, set default B-spline degrees of freedom
+  if(is.null(params$df)) {
+    params$df <- 6
+    params$df <<- 6
+  }
+
+  ## if not given, set default B-spline polynomial degree to cubic
+  if(is.null(params$degree)) {
+    params$degree <- 3
+    params$degree <<- 3
+  }
+
+  ## if not given, set default predictive proocess knots to 30
+  if(is.null(params$n_knots)) {
+    params$n_knots <- 30
+    params$n_knots <<- 30
+  }
+
+  ## if not given, make X_knots locations for predictive process
+  if (is.null(params$X_knots) & params$function_type == "gaussian-process") {
+    params$X_knots <- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X),
+                           length=params$n_knots)
+    params$X_knots <<- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X),
+                          length=params$n_knots)
   }
 
 
+  ## if not given, set additive_correlation to FALSE
+  if(is.null(params$additive_correlation)) {
+    params$additive_correlation <- FALSE
+    params$additive_correlation <<- FALSE
+  }
+
+  ## if not given, set multiplicative_correlation to FALSE
+  if(is.null(params$multiplicative_correlation)) {
+    params$multiplicative_correlation <- FALSE
+    params$multiplicative_correlation <<- FALSE
+  }
+
+  ## if not given, set n_chains to 4
+  if(is.null(params$n_chains)) {
+    params$n_chains <- 4
+    params$n_chains <<- 4    
+  }
+  ## if not given, set n_cors to 1
+  if(is.null(params$n_cores)) {
+    params$n_cores <- 1
+    params$n_cores <<- 1
+  }
+  
   ## parallel wrapper for code
   parallel_chains <- function(n_chains) {
     # , y=y, X=X, params=params,
     #                           progress_directory=progress_directory,
     #                           progress_file=progress_file) {
-    if (likelihood == "gaussian") {
-      if (function_type == "basis") {
+    if (params$likelihood == "gaussian") {
+      if (params$function_type == "basis") {
         ## gaussian basis mcmc
         out <- coda::mcmc(mcmcRcppBasis(y, X, params, n_chain=n_chains,
                                         file_name=paste0(progress_directory,
                                                          progress_file)))
-      } else if (function_type == "gaussian-process") {
+      } else if (params$function_type== "gaussian-process") {
         ## gaussian mvgp mcmc
         out <- coda::mcmc(mcmcRcppMVGP(y, X, params, n_chain=n_chains,
                                        file_name=paste0(progress_directory,
@@ -90,13 +147,13 @@ fit_compositional_data <- function(
         ## error if function_type argument is incorrect
         stop('only valid options for function_type are "basis" and "gaussian-process"')
       }
-    } else if (likelihood == "multi-logit") {
-      if (function_type == "basis") {
+    } else if (params$likelihood == "multi-logit") {
+      if (params$function_type == "basis") {
         ## multi-logit basis mcmc
         out <- coda::mcmc(mcmcRcppMLBasis(y, X, params, n_chain=n_chains,
                                           file_name=paste0(progress_directory,
                                                            progress_file)))
-      } else if (function_type == "gaussian-process") {
+      } else if (params$function_type == "gaussian-process") {
         ## multi-logit mvgp mcmc
         out <- coda::mcmc(mcmcRcppMLMVGP(y, X, params, n_chain=n_chains,
                                          file_name=paste0(progress_directory,
@@ -105,13 +162,13 @@ fit_compositional_data <- function(
         ## error if function_type argument is incorrect
         stop('only valid options for function_type are "basis" and "gaussian-process"')
       }
-    } else if (likelihood == "dirichlet-multinomial") {
-      if (function_type == "basis") {
+    } else if (params$likelihood == "dirichlet-multinomial") {
+      if (params$function_type == "basis") {
         ## dirichlet-multinomial basis mcmc
         out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
                                           file_name=paste0(progress_directory,
                                                            progress_file)))
-      } else if (function_type == "gaussian-process") {
+      } else if (params$function_type == "gaussian-process") {
         ## dirichlet-multinomial mvgp mcmc
         out <- coda::mcmc(mcmcRcppDMMVGP(y, X, params, n_chain=n_chains,
                                          file_name=paste0(progress_directory,
@@ -129,9 +186,9 @@ fit_compositional_data <- function(
   ## initialize storage list
   out <- list()
 
-  if (n_cores == 1) {
+  if (params$n_cores == 1) {
     ## run chains sequentially
-    out <- lapply(1:n_chains, parallel_chains)
+    out <- lapply(1:params$n_chains, parallel_chains)
     # , y=y, X=X, params=params,
     #               progress_directory=progress_directory,
     #               progress_file=progress_file)
@@ -139,15 +196,15 @@ fit_compositional_data <- function(
     ## run chains in parallel
 
     ## Initalize cluster
-    sfInit(parallel=TRUE, cpus=4)
+    sfInit(parallel=TRUE, cpus=params$n_cores)
     sfClusterSetupRNG()
-    sfExport("y", "X", "params", "likelihood", "function_type",
+    sfExport("y", "X", "params",
              "progress_directory", "progress_file")
     sfLibrary(BayesComposition)
     sfLibrary(coda)
 
 
-    out <- sfLapply(1:n_chains, parallel_chains)
+    out <- sfLapply(1:params$n_chains, parallel_chains)
     # , y=y, X=X, params=params,
     #                 progress_directory=progress_directory,
     #                 progress_file=progress_file)
