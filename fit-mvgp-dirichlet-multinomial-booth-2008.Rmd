@@ -1,5 +1,5 @@
 ---
-title: "Test DM-Basis"
+title: "Booth 2008 Testate Reconstructions"
 author: "John Tipton"
 date: "6/8/2017"
 output: html_document
@@ -92,21 +92,22 @@ sd_X <- sd(X)
 X_knots <- seq(min(X, na.rm=TRUE)-1.25*sd(X, na.rm=TRUE), 
                max(X, na.rm=TRUE)+1.25*sd(X, na.rm=TRUE), length=n_knots)
 
-params <- list(n_adapt=5000, n_mcmc=5000, n_thin=10, 
-               correlation_function="gaussian", message=100,
-               n_knots=n_knots, X_knots=X_knots)
 save_directory <- "./mvgp-test/"
 save_file <- "mvgp-dm-booth.RData"
+
+params <- list(n_adapt=5000, n_mcmc=5000, n_thin=10, 
+               likelihood = "dirichlet-multinomial", 
+               function_type = "gaussian-process",
+               n_chains=4, n_cores=4,
+               correlation_function="gaussian", message=100,
+               n_knots=n_knots, X_knots=X_knots)
 
 if (file.exists(paste0(save_directory, save_file))) {
   ## check if MCMC output exists
   load(paste0(save_directory, save_file))
 } else {
   ## potentially long running MCMC code
-  out <- fit_compositional_data(y=y, X=X, params=params, 
-                                likelihood = "dirichlet-multinomial", 
-                                function_type = "gaussian-process",
-                                n_chains=4, n_cores=4,
+  out <- fit_compositional_data(y=y, X=X, params=params,
                                 progress_directory = "./mvgp-test/",
                                 progress_file = "mvgp-dm-booth.txt", 
                                 save_directory = save_directory,
@@ -424,7 +425,8 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
-                                      group=Model, color=Model, fill=Model), alpha=0.25) 
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  ylim(-10, 60)
 ```
 
 
@@ -437,6 +439,9 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
                                       group=Model, color=Model, fill=Model), alpha=0.25) +
-  facet_wrap(~Model, ncol=2)
+  facet_wrap(~Model, ncol=2) +
+  ylim(-10, 60)
 ```
+
+
 

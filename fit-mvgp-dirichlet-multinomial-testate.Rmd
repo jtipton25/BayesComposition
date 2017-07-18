@@ -1,5 +1,5 @@
 ---
-title: "Test DM-Basis"
+title: "Full Testate Caribou Reconstructions"
 author: "John Tipton"
 date: "6/8/2017"
 output: html_document
@@ -306,7 +306,7 @@ ggplot(caribou.df, aes(Observation, Covariate)) +
 
 
 
-```{r, message=FALSE, include=FALSE}
+```{r, message=FALSE, include=FALSE, cache=TRUE}
 y_prop <- y
 y_recon_prop <- y_recon
 for (i in 1:N) {
@@ -365,6 +365,15 @@ out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
 pred_mu_GJAM  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
 pred_sd_GJAM  <- out$prediction$xpredSd[idx_hold, 2]
 
+## Random Forest
+library(randomForest)
+train <- data.frame(y=X, as.matrix(y))
+test <- data.frame(y_recon)
+n_samples <- length(pred$X[, 1])
+rf <- randomForest(y ~ ., data = train, ntree=n_samples)
+preds_rf <- predict(rf, test, predict.all=TRUE)$individual
+
+
 ```
 
 
@@ -386,13 +395,14 @@ for (i in 1:N_pred) {
 X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
-          apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+          apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
           # apply(preds_GJAM, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
           
 caribou.df <- data.frame(
   Covariate=c(X_ci),
-  Observation=factor(rep((1:N_pred), each=4*n_samples*0.95)), 
-  Model=rep(c("MVGP", "WA", "MLRC", "MAT"), each=n_samples*0.95)
+  Observation=factor(rep((1:N_pred), each=5*n_samples*0.95)), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF"), each=n_samples*0.95)
 )
 
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
@@ -406,11 +416,31 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
 
 
 
-````{r}
+```{r}
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   scale_x_discrete(breaks=seq(5, 25, 5)) + 
   labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
-
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  ylim(-10, 60)
 ```
+
+
+```{r}
+ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  facet_wrap(~Model, ncol=2) +
+  ylim(-10, 60)
+```
+
+
 
