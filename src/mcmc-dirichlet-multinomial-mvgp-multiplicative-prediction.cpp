@@ -6,13 +6,12 @@
 using namespace Rcpp;
 using namespace arma;
 
-// Multivariate Gaussian Process for Inverse Inference
+// Dirichlet-Multinomial Multivariate Gaussian Process for Inverse Inference
 
-//
 // Author: John Tipton
 //
-// Created 11.29.2016
-// Last updated 06.09.2017
+// Created 07.11.2016
+// Last updated 06.27.2017
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Functions for sampling ////////////////////////////
@@ -22,18 +21,17 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
+Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
                   const double& mu_X, const arma::vec& X_knots,
                   const arma::rowvec& y_current,
-                  const arma::vec& mu_current,
+                  const arma::rowvec& mu_current,
                   const arma::mat& eta_star_current,
-                  const arma::rowvec& zeta_current,
+                  const arma::rowvec& alpha_current,
                   const arma::rowvec& D_current,
-                  const arma::rowvec& c_current,
-                  const arma::mat& R_tau_current,
+                  const arma::rowvec& c_current, const arma::mat& R_tau_current,
                   const arma::rowvec& Z_current, const double& phi_current,
-                  const double& sigma_current, const arma::mat C_inv_current,
-                  const int& N_pred, const int& d,
+                  const arma::mat C_inv_current,
+                  const int& d, const double& count_double,
                   const std::string& file_name,
                   const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process
@@ -42,12 +40,7 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   // Z_current is the current predictive process linear
 
   // calculate log likelihood of current value
-  double current_log_like = 0.0;
-  for (int j=0; j<d; j++) {
-    current_log_like += R::dnorm(y_current(j), mu_current(j) + zeta_current(j),
-                                 sigma_current, true);
-  }
-
+  double current_log_like = LL_DM_row(alpha_current, y_current, d, count_double);
   double hh = log(R::runif(0.0, 1.0)) + current_log_like;
 
   // Setup a bracket and pick a first proposal
@@ -61,48 +54,67 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   arma::rowvec D_ess = D_current;
   arma::rowvec c_ess = c_current;
   arma::rowvec Z_ess = Z_current;
-  arma::rowvec zeta_ess = zeta_current;
+  arma::rowvec zeta_ess = alpha_current;
+  arma::rowvec alpha_ess = alpha_current;
   bool test = true;
 
   // Slice sampling loop
   while (test) {
     // compute proposal for angle difference and check to see if it is on the slice
     double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
+    // adjust for non-zero mean
     double X_tilde = X_proposal + mu_X;
-    arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2)).t();
+    arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2.0)).t();
     if (corr_function == "gaussian") {
       D_proposal = pow(D_proposal, 2.0);
     }
     arma::rowvec c_proposal = exp( - D_proposal / phi_current);
     arma::rowvec Z_proposal = c_proposal * C_inv_current;
     arma::rowvec zeta_proposal = Z_proposal * eta_star_current * R_tau_current;
+    arma::rowvec alpha_proposal = exp(mu_current + zeta_proposal);
 
     // calculate log likelihood of proposed value
-    double proposal_log_like = 0.0;
-    for (int j=0; j<d; j++) {
-      proposal_log_like += R::dnorm(y_current(j), mu_current(j) + zeta_proposal(j),
-                                    sigma_current, true);
-    }
-    if (proposal_log_like > hh) {
-      // proposal is on the slice
-      X_ess = X_proposal;
-      D_ess = D_proposal;
-      c_ess = c_proposal;
-      Z_ess = Z_proposal;
-      zeta_ess = zeta_proposal;
-      test = false;
-    } else if (phi_angle > 0.0) {
-      phi_angle_max = phi_angle;
-    } else if (phi_angle < 0.0) {
-      phi_angle_min = phi_angle;
+    double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d, count_double);
+    // control to limit alpha from getting unreasonably large
+    if (alpha_proposal.max() > pow(10.0, 10.0) ) {
+      if (phi_angle > 0.0) {
+        phi_angle_max = phi_angle;
+      } else if (phi_angle < 0.0) {
+        phi_angle_min = phi_angle;
+      } else {
+        Rprintf("Bug - ESS for X shrunk to current position with large alpha \n");
+        // set up output messages
+        std::ofstream file_out;
+        file_out.open(file_name, std::ios_base::app);
+        file_out << "Bug - ESS for X shrunk to current position with large alpha \n";
+        // close output file
+        file_out.close();
+        test = false;
+      }
     } else {
-      Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable \n");
-      // set up output messages
-      std::ofstream file_out;
-      file_out.open(file_name, std::ios_base::app);
-      file_out << "Bug - ESS for X shrunk to current position and still not acceptable \n";
-      // close output file
-      file_out.close();
+      if (proposal_log_like > hh) {
+        // proposal is on the slice
+        X_ess = X_proposal;
+        D_ess = D_proposal;
+        c_ess = c_proposal;
+        Z_ess = Z_proposal;
+        zeta_ess = zeta_proposal;
+        alpha_ess = alpha_proposal;
+        test = false;
+      } else if (phi_angle > 0.0) {
+        phi_angle_max = phi_angle;
+      } else if (phi_angle < 0.0) {
+        phi_angle_min = phi_angle;
+      } else {
+        Rprintf("Bug - ESS for X shrunk to current position \n");
+        // set up output messages
+        std::ofstream file_out;
+        file_out.open(file_name, std::ios_base::app);
+        file_out << "Bug - ESS for X shrunk to current position \n";
+        // close output file
+        file_out.close();
+        test = false;
+      }
     }
     // Propose new angle difference
     phi_angle = R::runif(0.0, 1.0) * (phi_angle_max - phi_angle_min) + phi_angle_min;
@@ -112,20 +124,22 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
       _["D"] = D_ess,
       _["c"] = c_ess,
       _["Z"] = Z_ess,
-      _["zeta"] = zeta_ess));
+      _["zeta"] = zeta_ess,
+      _["alpha"] = alpha_ess));
 }
 
-// [[Rcpp::export]]
-List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
-                      const double s2_X, const double min_X,
-                      const double max_X,
-                      List params,
-                      List samples,
-                      std::string file_name="mvgp-predict") {
-  // arma::mat& R, arma::vec& tau2, double& phi, double& sigma2,
-  // arma::mat& eta_star,
 
-  // Load parameters
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// MCMC Loop //////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// [[Rcpp::export]]
+List predictRcppDMMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X,
+                                      const double s2_X, const double min_X,
+                                      const double max_X,
+                                      List params,
+                                      List samples,
+                                      std::string file_name="DM-fit") {
 
   // set up dimensions
   double N_pred = Y_pred.n_rows;
@@ -134,6 +148,18 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
   arma::vec ones_B(B, arma::fill::ones);
+
+  // count - sum of counts at each site
+  arma::vec count_pred(N_pred);
+  for (int i=0; i<N_pred; i++) {
+    count_pred(i) = sum(Y_pred.row(i));
+  }
+
+  // add in option for reference category for Sigma
+  bool Sigma_reference_category = false;
+  if (params.containsElementNamed("Sigma_reference_category")) {
+    Sigma_reference_category = as<bool>(params["Sigma_reference_category"]);
+  }
 
   // standard deviation of covariate
   double s_X = sqrt(s2_X);
@@ -153,26 +179,30 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
   double phi = phi_fit(0);
   arma::cube eta_star_fit = as<cube>(samples["eta_star"]);
   arma::mat eta_star = eta_star_fit.subcube(0, 0, 0, 0, N_knots-1, d-1);
+  arma::mat xi_fit = as<mat>(samples["xi"]);
+  arma::vec xi = xi_fit.row(0).t();
   arma::mat tau2_fit = as<mat>(samples["tau2"]);
   arma::vec tau2 = tau2_fit.row(0).t();
   arma::cube R_fit = as<cube>(samples["R"]);
   arma::mat R = R_fit.subcube(0, 0, 0, 0, d-1, d-1);
   arma::cube R_tau_fit = as<cube>(samples["R_tau"]);
   arma::mat R_tau = R_tau_fit.subcube(0, 0, 0, 0, d-1, d-1);
-  arma::vec sigma2_fit = as<vec>(samples["sigma2"]);
-  double sigma2 = sigma2_fit(0);
-  double sigma = sqrt(sigma2);
 
   // default to message output every 5000 iterations
   int message = 5000;
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
   }
+
   // default X tuning parameter standard deviation of 0.25
   double X_tune_tmp = 2.5;
   if (params.containsElementNamed("X_tune")) {
     X_tune_tmp = as<double>(params["X_tune"]);
   }
+
+  //
+  // Set up missing covariates
+  //
 
   // Default sampling of missing covariate
   bool sample_X = true;
@@ -223,6 +253,7 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
   arma::mat Z = c * C_inv;
 
   arma::mat zeta_pred = Z * eta_star * R_tau;
+  arma::mat alpha_pred = exp(mu_mat + zeta_pred);
 
   // Initialize constant vectors
 
@@ -231,6 +262,7 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
 
   // setup save variables
   arma::cube zeta_pred_save(n_samples, N_pred, d, arma::fill::zeros);
+  arma::cube alpha_pred_save(n_samples, N_pred, d, arma::fill::zeros);
   arma::mat X_save(n_samples, N_pred, arma::fill::zeros);
 
   // initialize tuning
@@ -248,7 +280,6 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
     " iterations \n";
   // close output file
   file_out.close();
-
 
   // Start MCMC chain
   for (int k=0; k<n_samples; k++) {
@@ -270,6 +301,9 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
 
     // Load MCMC estimated parameters
     mu = mu_fit.row(k).t();
+    for (int i=0; i<N_pred; i++) {
+      mu_mat.row(i) = mu.t();
+    }
     phi = phi_fit(k);
     C = exp(- D_knots / phi);
     C_chol = chol(C);
@@ -277,83 +311,53 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
     c = exp( - D / phi);
     Z = c * C_inv;
     eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+    xi = xi_fit.row(k).t();
     tau2 = tau2_fit.row(k).t();
     R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
     R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    sigma2 = sigma2_fit(k);
     zeta_pred = Z * eta_star * R_tau;
-
+    alpha_pred = exp(mu_mat + zeta_pred);
 
     if (sample_X) {
-      if (sample_X_mh) {
-        // sample using Metropolis-Hastings
-        for (int i=0; i<N_pred; i++) {
-          arma::vec X_star = X_pred;
-          X_star(i) += R::rnorm(0.0, X_tune(i));
-          // add in prior mean here
-          arma::rowvec D_proposal = sqrt(pow(X_star(i) + mu_X - X_knots, 2)).t();
-          if (corr_function == "gaussian") {
-            D_proposal = pow(D_proposal, 2.0);
-          }
-          // arma::rowvec D_proposal = sqrt(pow(X_star(i) - X_knots, 2)).t();
-          arma::rowvec c_proposal = exp( - D_proposal / phi);
-          arma::rowvec Z_proposal = c_proposal * C_inv;
-          arma::rowvec zeta_proposal = Z_proposal * eta_star * R_tau;
-          double mh1 = R::dnorm(X_star(i), 0.0, s_X, true);
-          double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
-          // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
-          // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
-          for (int j=0; j<d; j++) {
-            mh1 += R::dnorm(Y_pred(i, j), mu(j) + zeta_proposal(j), sigma, true);
-            mh2 += R::dnorm(Y_pred(i, j), mu(j) + zeta_pred(i, j), sigma, true);
-          }
-          double mh = exp(mh1-mh2);
-          if (mh > R::runif(0.0, 1.0)) {
-            X_pred = X_star;
-            D.row(i) = D_proposal;
-            c.row(i) = c_proposal;
-            Z.row(i) = Z_proposal;
-            zeta_pred.row(i) = zeta_proposal;
-            X_accept_batch(i) += 1.0 / 50.0;
-          }
-        }
-        // update tuning
-        if ((k+1) % 50 == 0){
-          updateTuningVec(k, X_accept_batch, X_tune);
-        }
-      } else {
-        // sample using ESS
-        for (int i=0; i<N_pred; i++) {
-          double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
-                                     mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
-                                     R_tau, Z.row(i), phi, sigma,
-                                     C_inv, N_pred, d, file_name,
-                                     corr_function);
-          X_pred(i) = as<double>(ess_out["X"]);
-          D.row(i) = as<rowvec>(ess_out["D"]);
-          c.row(i) = as<rowvec>(ess_out["c"]);
-          Z.row(i) = as<rowvec>(ess_out["Z"]);
-          zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
-        }
+      for (int i=0; i<N_pred; i++) {
+        double X_prior = R::rnorm(0.0, s_X);
+        // double X_prior = R::rnorm(mu_X, s_X);
+        Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots,
+                                   Y_pred.row(i), mu.t(), eta_star,
+                                   alpha_pred.row(i), D.row(i),
+                                   c.row(i), R_tau, Z.row(i), phi,
+                                   C_inv, d, count_pred(i),
+                                   file_name, corr_function);
+        X_pred(i) = as<double>(ess_out["X"]);
+        D.row(i) = as<rowvec>(ess_out["D"]);
+        c.row(i) = as<rowvec>(ess_out["c"]);
+        Z.row(i) = as<rowvec>(ess_out["Z"]);
+        zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
+        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
       }
     }
-
     //
     // save variables
     //
 
     zeta_pred_save.subcube(span(k), span(), span()) = zeta_pred;
+    alpha_pred_save.subcube(span(k), span(), span()) = alpha_pred;
     X_save.row(k) = X_pred.t() + mu_X;
+
+    // end of sampling loop
   }
 
   // print accpetance rates
   // set up output messages
   file_out.open(file_name, std::ios_base::app);
+
   // close output file
   file_out.close();
 
+  // output results
+
   return Rcpp::List::create(
     _["zeta_pred"] = zeta_pred_save,
+    _["alpha_pred"] = alpha_pred_save,
     _["X"] = X_save);
 }

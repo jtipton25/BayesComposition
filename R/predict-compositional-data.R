@@ -78,10 +78,29 @@ predict_compositional_data <- function(
                                   params, samples,
                                   paste0(progress_directory, progress_file))
     } else if (params$function_type == "gaussian-process") {
-      ## dirichlet-multinomial mvgp mcmc
-      preds <- predictRcppDMMVGP(y_reconstruct, mu_X, s2_X, min_X, max_X,
-                                 params, samples,
-                                 paste0(progress_directory, progress_file))
+      if (params$multiplicative == FALSE) {
+        ## dirichlet-multinomial mvgp mcmc
+        if (params$additive == FALSE) {
+          preds <- predictRcppDMMVGP(y_reconstruct, mu_X, s2_X, min_X, max_X,
+                                     params, samples,
+                                     paste0(progress_directory, progress_file))
+        } else {
+          preds <- predictRcppDMMVGPAdditive(y_reconstruct, mu_X, s2_X, min_X, max_X,
+                                             params, samples,
+                                             paste0(progress_directory, progress_file))
+        }
+      } else {
+        if (params$addtitive == FALSE) {
+          preds <- predictRcppDMMVGPMultiplicative(y_reconstruct, mu_X, s2_X, min_X, max_X,
+                                                   params, samples,
+                                                   paste0(progress_directory, progress_file))
+        } else {
+          preds <- predictRcppDMMVGPMultiplicativeAdditive(y_reconstruct,
+                                                           mu_X, s2_X, min_X, max_X,
+                                                           params, samples,
+                                                           paste0(progress_directory, progress_file))
+        }
+      }
     } else {
       ## error if function_type argument is incorrect
       stop('only valid options for function_type are "basis" and "gaussian-process"')

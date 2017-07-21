@@ -22,7 +22,7 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
+Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
                   const double& mu_X, const arma::vec& X_knots,
                   const arma::rowvec& y_current,
                   const arma::vec& mu_current,
@@ -116,12 +116,12 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 }
 
 // [[Rcpp::export]]
-List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
-                      const double s2_X, const double min_X,
-                      const double max_X,
-                      List params,
-                      List samples,
-                      std::string file_name="mvgp-predict") {
+List predictRcppMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X,
+                                    const double s2_X, const double min_X,
+                                    const double max_X,
+                                    List params,
+                                    List samples,
+                                    std::string file_name="mvgp-predict") {
   // arma::mat& R, arma::vec& tau2, double& phi, double& sigma2,
   // arma::mat& eta_star,
 
@@ -153,6 +153,8 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
   double phi = phi_fit(0);
   arma::cube eta_star_fit = as<cube>(samples["eta_star"]);
   arma::mat eta_star = eta_star_fit.subcube(0, 0, 0, 0, N_knots-1, d-1);
+  arma::mat xi_fit = as<mat>(samples["xi"]);
+  arma::vec xi = xi_fit.row(0).t();
   arma::mat tau2_fit = as<mat>(samples["tau2"]);
   arma::vec tau2 = tau2_fit.row(0).t();
   arma::cube R_fit = as<cube>(samples["R"]);
@@ -277,6 +279,7 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
     c = exp( - D / phi);
     Z = c * C_inv;
     eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+    xi = xi_fit.row(k).t();
     tau2 = tau2_fit.row(k).t();
     R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
     R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
@@ -325,7 +328,7 @@ List predictRcppMVGP (const arma::mat& Y_pred, const double mu_X,
         // sample using ESS
         for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
+          Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
                                      mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
                                      R_tau, Z.row(i), phi, sigma,
                                      C_inv, N_pred, d, file_name,

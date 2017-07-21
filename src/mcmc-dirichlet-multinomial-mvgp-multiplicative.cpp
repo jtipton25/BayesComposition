@@ -15,7 +15,7 @@ using namespace arma;
 // Author: John Tipton
 //
 // Created 07.11.2016
-// Last updated 05.18.2017
+// Last updated 07.19.2017
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Functions for sampling ////////////////////////////
@@ -30,7 +30,7 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for random effect eta_star /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess (const arma::mat& eta_star_current,
+Rcpp::List ess_multiplicative (const arma::mat& eta_star_current,
                 const arma::vec& prior_sample,
                 const arma::mat& alpha_current,
                 const arma::mat& mu_mat_current,
@@ -138,11 +138,11 @@ Rcpp::List ess (const arma::mat& eta_star_current,
 ///////////////////////////////////////////////////////////////////////////////
 
 // [[Rcpp::export]]
-List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
-                     List params,
-                     int n_chain=1, bool pool_s2_tau2=true,
-                     std::string file_name="DM-fit",
-                     std::string corr_function="exponential") {
+List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
+                                   List params,
+                                   int n_chain=1, bool pool_s2_tau2=true,
+                                   std::string file_name="DM-fit",
+                                   std::string corr_function="exponential") {
 
   // Load parameters
   int n_adapt = as<int>(params["n_adapt"]);
@@ -152,6 +152,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   // set up dimensions
   double N = Y.n_rows;
   double d = Y.n_cols;
+  double B = Rf_choose(d, 2);
 
   // count - sum of counts at each site
   arma::vec count(N);
@@ -171,6 +172,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   // constant vectors
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
+  arma::vec ones_B(B, arma::fill::ones);
   arma::vec zero_knots(N_knots, arma::fill::zeros);
 
   // default normal prior for overall mean mu
@@ -208,6 +210,12 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   if (params.containsElementNamed("A_s2")) {
     A_s2 = as<double>(params["A_s2"]);
   }
+  // default xi LKJ concentation parameter of 1
+  double eta = 1.0;
+  if (params.containsElementNamed("eta")) {
+    eta = as<double>(params["eta"]);
+  }
+
 
   // default to message output every 500 iterations
   int message = 500;
@@ -241,9 +249,13 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
     lambda_tau2_tune = as<double>(params["lambda_tau2_tune"]);
   }
 
-  //
-  // Set up Gaussian process and predictive process
-  //
+  // default xi tuning parameter
+  double lambda_xi_tune = 1.0 / pow(3.0, 0.8);
+  if (params.containsElementNamed("lambda_xi_tune")) {
+    lambda_xi_tune = as<double>(params["lambda_xi_tune"]);
+  }
+
+  // Gaussian process distance matrix
 
   arma::mat D = makeDistARMA(X, X_knots);
   arma::mat D_knots = makeDistARMA(X_knots, X_knots);
@@ -253,14 +265,6 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   } else if (corr_function != "exponential") {
     stop ("the only valid correlation functions are exponential and gaussian");
   }
-
-  //
-  // initialize values
-  //
-
-  //
-  // set default, fixed parameters and turn on/off samplers for testing
-  //
 
   //
   // Default for mu
@@ -343,8 +347,36 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
     sample_eta_star_mh = as<bool>(params["sample_eta_star_mh"]);
   }
 
-  // construct random effects
-  arma::mat R(d, d, arma::fill::eye);
+  //
+  // Default LKJ hyperparameter xi
+  //
+
+  arma::vec eta_vec(B);
+  int idx_eta = 0;
+  for (int j=0; j<(d-1); j++) {
+    for (int k=0; k<(d-j-1); k++) {
+      eta_vec(idx_eta+k) = eta + (d - 2.0 - j) / 2.0;
+    }
+    idx_eta += d-j-1;
+  }
+  arma::vec xi(B);
+  for (int b=0; b<B; b++) {
+    xi(b) = 2.0 * R::rbeta(eta_vec(b), eta_vec(b)) - 1.0;
+  }
+  arma::vec xi_tilde(B);
+  if (params.containsElementNamed("xi")) {
+    xi = as<vec>(params["xi"]);
+  }
+  for (int b=0; b<B; b++) {
+    xi_tilde(b) = 0.5 * (xi(b) + 1.0);
+  }
+  bool sample_xi = true;
+  if (params.containsElementNamed("sample_xi")) {
+    sample_xi = as<bool>(params["sample_xi"]);
+  }
+  Rcpp::List R_out = makeRLKJ(xi, d, true, true);
+  double log_jacobian = as<double>(R_out["log_jacobian"]);
+  arma::mat R = as<mat>(R_out["R"]);
   arma::mat R_tau = R * diagmat(tau);
   arma::mat zeta = Z * eta_star * R_tau;
   arma::mat alpha = exp(mu_mat + zeta);
@@ -360,6 +392,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   arma::cube eta_star_save(n_save, N_knots, d, arma::fill::zeros);
   arma::cube R_save(n_save, d, d, arma::fill::zeros);
   arma::cube R_tau_save(n_save, d, d, arma::fill::zeros);
+  arma::mat xi_save(n_save, B, arma::fill::zeros);
 
   // initialize tuning
   double phi_accept = 0.0;
@@ -384,6 +417,11 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
     Sigma_tau2_tune_chol.shed_row(d-1);
     tau2_batch.shed_col(d-1);
   }
+  double xi_accept = 0.0;
+  double xi_accept_batch = 0.0;
+  arma::mat xi_batch(50, B, arma::fill::zeros);
+  arma::mat Sigma_xi_tune(B, B, arma::fill::eye);
+  arma::mat Sigma_xi_tune_chol = chol(Sigma_xi_tune);
   arma::vec eta_star_accept(d, arma::fill::zeros);
   arma::vec eta_star_accept_batch(d, arma::fill::zeros);
   arma::cube eta_star_batch(50, N_knots, d, arma::fill::zeros);
@@ -530,7 +568,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
         // elliptical slice sampler
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
-          Rcpp::List ess_eta_star_out = ess(eta_star, eta_star_prior, alpha,
+          Rcpp::List ess_eta_star_out = ess_multiplicative(eta_star, eta_star_prior, alpha,
                                             mu_mat, zeta, R_tau, Z, Y, N, d,
                                             j, count, file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
@@ -622,7 +660,52 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
       }
     }
 
+    //
+    // sample xi - MH
+    //
 
+    if (sample_xi) {
+      arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
+                                                         lambda_xi_tune * Sigma_xi_tune_chol);
+      arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
+      arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
+      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+      if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
+        Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
+        arma::mat R_star = as<mat>(R_out["R"]);
+        arma::mat R_tau_star = R_star * diagmat(tau);
+        arma::mat zeta_star = Z * eta_star * R_tau_star;
+        arma::mat alpha_star = exp(mu_mat + zeta_star);
+        double log_jacobian_star = as<double>(R_out["log_jacobian"]);
+        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+          // Jacobian adjustment
+          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
+        double mh2 = LL_DM(alpha, Y, N, d, count) +
+          // Jacobian adjustment
+          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+        for (int b=0; b<B; b++) {
+          mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          xi_tilde = xi_tilde_star;
+          xi = xi_star;
+          R = R_star;
+          R_tau = R_tau_star;
+          log_jacobian = log_jacobian_star;
+          zeta = zeta_star;
+          alpha = alpha_star;
+          xi_accept_batch += 1.0 / 50.0;
+        }
+      }
+      // update tuning
+      xi_batch.row(k % 50) = logit(xi_tilde).t();
+      if ((k+1) % 50 == 0){
+        updateTuningMV(k, xi_accept_batch, lambda_xi_tune, xi_batch,
+                       Sigma_xi_tune, Sigma_xi_tune_chol);
+      }
+    }
   // end of adaptation loop
   }
 
@@ -727,11 +810,9 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
                             lambda_eta_star_tune(j) * Sigma_eta_star_tune_chol.slice(j));
           arma::mat zeta_star = Z * eta_star_star * R_tau;
           arma::mat alpha_star = exp(mu_mat + zeta_star);
-          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true) -
-            // double mh1 = dMVNChol(eta_star_star.col(j), zero_knots, C_chol, true) -
+          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true) +
             LL_DM(alpha_star, Y, N, d, count);
-          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true) -
-            // double mh2 = dMVNChol(eta_star.col(j), zero_knots, C_chol, true) -
+          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true) +
             LL_DM(alpha, Y, N, d, count);
           double mh = exp(mh1-mh2);
           if (mh > R::runif(0.0, 1.0)) {
@@ -745,7 +826,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
         // elliptical slice sampler
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
-          Rcpp::List ess_eta_star_out = ess(eta_star, eta_star_prior, alpha,
+          Rcpp::List ess_eta_star_out = ess_multiplicative(eta_star, eta_star_prior, alpha,
                                             mu_mat, zeta, R_tau, Z, Y, N, d,
                                             j, count, file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
@@ -823,6 +904,47 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
     }
 
     //
+    // sample xi - MH
+    //
+
+    if (sample_xi) {
+      arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
+                                                         lambda_xi_tune * Sigma_xi_tune_chol);
+      arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
+      arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
+      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+      if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
+        Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
+        arma::mat R_star = as<mat>(R_out["R"]);
+        arma::mat R_tau_star = R_star * diagmat(tau);
+        arma::mat zeta_star = Z * eta_star * R_tau_star;
+        arma::mat alpha_star = exp(mu_mat + zeta_star);
+        double log_jacobian_star = as<double>(R_out["log_jacobian"]);
+        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+          // Jacobian adjustment
+          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
+        double mh2 = LL_DM(alpha, Y, N, d, count) +
+          // Jacobian adjustment
+          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+        for (int b=0; b<B; b++) {
+          mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          xi_tilde = xi_tilde_star;
+          xi = xi_star;
+          R = R_star;
+          R_tau = R_tau_star;
+          log_jacobian = log_jacobian_star;
+          zeta = zeta_star;
+          alpha = alpha_star;
+          xi_accept += 1.0 / n_mcmc;
+        }
+      }
+    }
+
+    //
     // save variables
     //
 
@@ -836,6 +958,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
       eta_star_save.subcube(span(save_idx), span(), span()) = eta_star;
       R_save.subcube(span(save_idx), span(), span()) = R;
       R_tau_save.subcube(span(save_idx), span(), span()) = R_tau;
+      xi_save.row(save_idx) = xi.t();
     }
     // end of MCMC fitting loop
   }
@@ -859,6 +982,10 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
   }
   // file_out << "Average acceptance rate for X  = " << mean(X_accept) <<
   // " for chain " << n_chain << "\n";
+  if (sample_xi) {
+    file_out << "Average acceptance rate for xi  = " << mean(xi_accept) <<
+      " for chain " << n_chain << "\n";
+  }
   if (sample_tau2) {
     file_out << "Average acceptance rate for tau2  = " << mean(tau2_accept) <<
       " for chain " << n_chain << "\n";
@@ -875,5 +1002,7 @@ List mcmcRcppDMMVGP (const arma::mat& Y, const arma::vec& X,
     _["alpha"] = alpha_save,
     _["phi"] = phi_save,
     _["tau2"] = tau2_save,
-    _["R_tau"] = R_tau_save);
+    _["R"] = R_save,
+    _["R_tau"] = R_tau_save,
+    _["xi"] = xi_save);
 }

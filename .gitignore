@@ -5,3 +5,9 @@
 src/*.o
 src/*.so
 src/*.dll
+
+fit-mvgp-dirichlet-multinomial-booth-2008_cache/
+fit-mvgp-dirichlet-multinomial-booth-2008_files/
+fit-mvgp-dirichlet-multinomial-testate_cache/
+fit-mvgp-dirichlet-multinomial-testate_files/
+mvgp-test/

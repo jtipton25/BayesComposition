@@ -550,6 +550,109 @@ RcppExport SEXP BayesComposition_makeQinv(SEXP thetaSEXP, SEXP tSEXP) {
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// predictRcppDMMVGPAdditive
+List predictRcppDMMVGPAdditive(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMMVGPAdditive(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMMVGPAdditive(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMMVGPAdditive
+List mcmcRcppDMMVGPAdditive(const arma::mat& Y, const arma::vec& X, List params, int n_chain, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMMVGPAdditive(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMMVGPAdditive(Y, X, params, n_chain, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppDMMVGPMultiplicativeAdditive
+List predictRcppDMMVGPMultiplicativeAdditive(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMMVGPMultiplicativeAdditive(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMMVGPMultiplicativeAdditive(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMMVGPMultiplicativeAdditive
+List mcmcRcppDMMVGPMultiplicativeAdditive(const arma::mat& Y, const arma::vec& X, List params, int n_chain, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMMVGPMultiplicativeAdditive(Y, X, params, n_chain, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppDMMVGPMultiplicative
+List predictRcppDMMVGPMultiplicative(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMMVGPMultiplicative(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMMVGPMultiplicative(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMMVGPMultiplicative
+List mcmcRcppDMMVGPMultiplicative(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMMVGPMultiplicative(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMMVGPMultiplicative(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
 // predictRcppDMMVGP
 List predictRcppDMMVGP(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
 RcppExport SEXP BayesComposition_predictRcppDMMVGP(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
@@ -582,6 +685,111 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
     Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
     rcpp_result_gen = Rcpp::wrap(mcmcRcppDMMVGP(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppDMBasisAdditive
+List predictRcppDMBasisAdditive(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMBasisAdditive(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMBasisAdditive(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMBasisAdditive
+List mcmcRcppDMBasisAdditive(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMBasisAdditive(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMBasisAdditive(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppDMBasisMultiplicativeAdditive
+List predictRcppDMBasisMultiplicativeAdditive(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMBasisMultiplicativeAdditive(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMBasisMultiplicativeAdditive(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMBasisMultiplicativeAdditive
+List mcmcRcppDMBasisMultiplicativeAdditive(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMBasisMultiplicativeAdditive(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppDMBasisMultiplicative
+List predictRcppDMBasisMultiplicative(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppDMBasisMultiplicative(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMBasisMultiplicative(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMBasisMultiplicative
+List mcmcRcppDMBasisMultiplicative(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP BayesComposition_mcmcRcppDMBasisMultiplicative(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMBasisMultiplicative(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -632,6 +840,24 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
     Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
     rcpp_result_gen = Rcpp::wrap(mcmcRcppGAM(Y, X_input, params, n_chain, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predictRcppMVGPMultiplicative
+List predictRcppMVGPMultiplicative(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP BayesComposition_predictRcppMVGPMultiplicative(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppMVGPMultiplicative(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1138,11 +1364,24 @@ static const R_CallMethodDef CallEntries[] = {
     {"BayesComposition_makeCRPS", (DL_FUNC) &BayesComposition_makeCRPS, 3},
     {"BayesComposition_makeDistARMA", (DL_FUNC) &BayesComposition_makeDistARMA, 2},
     {"BayesComposition_makeQinv", (DL_FUNC) &BayesComposition_makeQinv, 2},
+    {"BayesComposition_predictRcppDMMVGPAdditive", (DL_FUNC) &BayesComposition_predictRcppDMMVGPAdditive, 8},
+    {"BayesComposition_mcmcRcppDMMVGPAdditive", (DL_FUNC) &BayesComposition_mcmcRcppDMMVGPAdditive, 6},
+    {"BayesComposition_predictRcppDMMVGPMultiplicativeAdditive", (DL_FUNC) &BayesComposition_predictRcppDMMVGPMultiplicativeAdditive, 8},
+    {"BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive", (DL_FUNC) &BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive, 6},
+    {"BayesComposition_predictRcppDMMVGPMultiplicative", (DL_FUNC) &BayesComposition_predictRcppDMMVGPMultiplicative, 8},
+    {"BayesComposition_mcmcRcppDMMVGPMultiplicative", (DL_FUNC) &BayesComposition_mcmcRcppDMMVGPMultiplicative, 7},
     {"BayesComposition_predictRcppDMMVGP", (DL_FUNC) &BayesComposition_predictRcppDMMVGP, 8},
     {"BayesComposition_mcmcRcppDMMVGP", (DL_FUNC) &BayesComposition_mcmcRcppDMMVGP, 7},
+    {"BayesComposition_predictRcppDMBasisAdditive", (DL_FUNC) &BayesComposition_predictRcppDMBasisAdditive, 8},
+    {"BayesComposition_mcmcRcppDMBasisAdditive", (DL_FUNC) &BayesComposition_mcmcRcppDMBasisAdditive, 7},
+    {"BayesComposition_predictRcppDMBasisMultiplicativeAdditive", (DL_FUNC) &BayesComposition_predictRcppDMBasisMultiplicativeAdditive, 8},
+    {"BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive", (DL_FUNC) &BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive, 7},
+    {"BayesComposition_predictRcppDMBasisMultiplicative", (DL_FUNC) &BayesComposition_predictRcppDMBasisMultiplicative, 8},
+    {"BayesComposition_mcmcRcppDMBasisMultiplicative", (DL_FUNC) &BayesComposition_mcmcRcppDMBasisMultiplicative, 7},
     {"BayesComposition_predictRcppDMBasis", (DL_FUNC) &BayesComposition_predictRcppDMBasis, 8},
     {"BayesComposition_mcmcRcppDMBasis", (DL_FUNC) &BayesComposition_mcmcRcppDMBasis, 7},
     {"BayesComposition_mcmcRcppGAM", (DL_FUNC) &BayesComposition_mcmcRcppGAM, 5},
+    {"BayesComposition_predictRcppMVGPMultiplicative", (DL_FUNC) &BayesComposition_predictRcppMVGPMultiplicative, 8},
     {"BayesComposition_predictRcppMVGP", (DL_FUNC) &BayesComposition_predictRcppMVGP, 8},
     {"BayesComposition_mcmcRcppMVGP", (DL_FUNC) &BayesComposition_mcmcRcppMVGP, 5},
     {"BayesComposition_mvrnormArma", (DL_FUNC) &BayesComposition_mvrnormArma, 3},

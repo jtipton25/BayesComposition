@@ -138,12 +138,60 @@ makeQinv <- function(theta, t) {
     .Call('BayesComposition_makeQinv', PACKAGE = 'BayesComposition', theta, t)
 }
 
+predictRcppDMMVGPAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
+    .Call('BayesComposition_predictRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMMVGPAdditive <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
+}
+
+predictRcppDMMVGPMultiplicativeAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
+    .Call('BayesComposition_predictRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMMVGPMultiplicativeAdditive <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
+}
+
+predictRcppDMMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
+    .Call('BayesComposition_predictRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMMVGPMultiplicative <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+}
+
 predictRcppDMMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
     .Call('BayesComposition_predictRcppDMMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMMVGP <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
     .Call('BayesComposition_mcmcRcppDMMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+}
+
+predictRcppDMBasisAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
+    .Call('BayesComposition_predictRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMBasisAdditive <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+}
+
+predictRcppDMBasisMultiplicativeAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
+    .Call('BayesComposition_predictRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMBasisMultiplicativeAdditive <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+}
+
+predictRcppDMBasisMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
+    .Call('BayesComposition_predictRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMBasisMultiplicative <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('BayesComposition_mcmcRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasis <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
@@ -156,6 +204,10 @@ mcmcRcppDMBasis <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, fil
 
 mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
     .Call('BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
+}
+
+predictRcppMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
+    .Call('BayesComposition_predictRcppMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 predictRcppMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {

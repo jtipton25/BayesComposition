@@ -53,7 +53,7 @@ fit_compositional_data <- function(
     dir.create(save_directory)
   }
 
-## if not given, set default parameter for number of adaptation iterations
+  ## if not given, set default parameter for number of adaptation iterations
   if(is.null(params$n_adapt)) {
     params$n_adapt <- 500
     params$n_adapt <<- 500
@@ -98,9 +98,9 @@ fit_compositional_data <- function(
   ## if not given, make X_knots locations for predictive process
   if (is.null(params$X_knots) & params$function_type == "gaussian-process") {
     params$X_knots <- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X),
-                           length=params$n_knots)
-    params$X_knots <<- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X),
                           length=params$n_knots)
+    params$X_knots <<- seq(min(X)-1.25*sd(X), max(X)+1.25*sd(X),
+                           length=params$n_knots)
   }
 
 
@@ -119,14 +119,14 @@ fit_compositional_data <- function(
   ## if not given, set n_chains to 4
   if(is.null(params$n_chains)) {
     params$n_chains <- 4
-    params$n_chains <<- 4    
+    params$n_chains <<- 4
   }
   ## if not given, set n_cors to 1
   if(is.null(params$n_cores)) {
     params$n_cores <- 1
     params$n_cores <<- 1
   }
-  
+
   ## parallel wrapper for code
   parallel_chains <- function(n_chains) {
     # , y=y, X=X, params=params,
@@ -165,14 +165,50 @@ fit_compositional_data <- function(
     } else if (params$likelihood == "dirichlet-multinomial") {
       if (params$function_type == "basis") {
         ## dirichlet-multinomial basis mcmc
-        out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
-                                          file_name=paste0(progress_directory,
-                                                           progress_file)))
+        if (params$multiplicative == FALSE) {
+          if (params$additive == FALSE) {
+            out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
+                                              file_name=paste0(progress_directory,
+                                                               progress_file)))
+          } else {
+            out <- coda::mcmc(mcmcRcppDMBasisAdditive(y, X, params, n_chain=n_chains,
+                                                      file_name=paste0(progress_directory,
+                                                                       progress_file)))
+          }
+        } else {
+          if (params$additive == FALSE) {
+            out <- coda::mcmc(mcmcRcppDMBasisMultiplicative(y, X, params, n_chain=n_chains,
+                                                            file_name=paste0(progress_directory,
+                                                                             progress_file)))
+          } else {
+            out <- coda::mcmc(mcmcRcppDMBasisMultiplicativeAdditive(y, X, params, n_chain=n_chains,
+                                                                    file_name=paste0(progress_directory,
+                                                                                     progress_file)))
+          }
+        }
       } else if (params$function_type == "gaussian-process") {
         ## dirichlet-multinomial mvgp mcmc
-        out <- coda::mcmc(mcmcRcppDMMVGP(y, X, params, n_chain=n_chains,
-                                         file_name=paste0(progress_directory,
-                                                          progress_file)))
+        if (params$multiplicative == FALSE) {
+          if (params$additive == FALSE) {
+            out <- coda::mcmc(mcmcRcppDMMVGP(y, X, params, n_chain=n_chains,
+                                             file_name=paste0(progress_directory,
+                                                              progress_file)))
+          } else {
+            out <- coda::mcmc(mcmcRcppDMMVGPAdditive(y, X, params, n_chain=n_chains,
+                                                     file_name=paste0(progress_directory,
+                                                                      progress_file)))
+          }
+        } else {
+          if (params$additive == FALSE) {
+            out <- coda::mcmc(mcmcRcppDMMVGPMultiplicative(y, X, params, n_chain=n_chains,
+                                                           file_name=paste0(progress_directory,
+                                                                            progress_file)))
+          } else {
+            out <- coda::mcmc(mcmcRcppDMMVGPMultiplicativeAdditive(y, X, params, n_chain=n_chains,
+                                                                   file_name=paste0(progress_directory,
+                                                                                    progress_file)))
+          }
+        }
       } else {
         ## error if function_type argument is incorrect
         stop('only valid options for function_type are "basis" and "gaussian-process"')
