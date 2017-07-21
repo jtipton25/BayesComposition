@@ -337,6 +337,11 @@ List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const do
 
   // setup save variables
   arma::cube alpha_pred_save(n_samples, N_pred, d, arma::fill::zeros);
+  // Default sampling of epsilon
+  bool sample_epsilon = true;
+  if (params.containsElementNamed("sample_epsilon")) {
+    sample_epsilon = as<bool>(params["sample_epsilon"]);
+  }
   arma::cube epsilon_pred_save(n_samples, N_pred, d, arma::fill::zeros);
   arma::mat X_save(n_samples, N_pred, arma::fill::zeros);
 
@@ -398,10 +403,11 @@ List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const do
     if (sample_epsilon) {
       for (int i=0; i<N_pred; i++) {
         arma::vec epsilon_prior = mvrnormArmaVecChol(zero_d, R_tau_additive);
-        Rcpp::List ess_out = ess_epsilon_additive(epsilon_pred.row(i), epsilon_prior, beta, alpha_pred,
-                                                  Y_pred.row(i), Xbs_pred.row(i),
-                                                  R_tau, knots, d, degree, df,
-                                                  rangeX, count_pred(i), file_name);
+        Rcpp::List ess_out = ess_epsilon_multiplicative_additive(
+          epsilon_pred.row(i), epsilon_prior, beta, alpha_pred,
+          Y_pred.row(i), Xbs_pred.row(i),
+          R_tau, knots, d, degree, df,
+          rangeX, count_pred(i), file_name);
         epsilon_pred.row(i) = as<rowvec>(ess_out["epsilon"]);
         alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
       }
