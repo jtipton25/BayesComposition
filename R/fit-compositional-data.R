@@ -165,8 +165,8 @@ fit_compositional_data <- function(
     } else if (params$likelihood == "dirichlet-multinomial") {
       if (params$function_type == "basis") {
         ## dirichlet-multinomial basis mcmc
-        if (params$multiplicative == FALSE) {
-          if (params$additive == FALSE) {
+        if (params$multiplicative_correlation == FALSE) {
+          if (params$additive_correlation == FALSE) {
             out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
                                               file_name=paste0(progress_directory,
                                                                progress_file)))
@@ -176,7 +176,7 @@ fit_compositional_data <- function(
                                                                        progress_file)))
           }
         } else {
-          if (params$additive == FALSE) {
+          if (params$additive_correlation == FALSE) {
             out <- coda::mcmc(mcmcRcppDMBasisMultiplicative(y, X, params, n_chain=n_chains,
                                                             file_name=paste0(progress_directory,
                                                                              progress_file)))
@@ -188,8 +188,8 @@ fit_compositional_data <- function(
         }
       } else if (params$function_type == "gaussian-process") {
         ## dirichlet-multinomial mvgp mcmc
-        if (params$multiplicative == FALSE) {
-          if (params$additive == FALSE) {
+        if (params$multiplicative_correlation == FALSE) {
+          if (params$additive_correlation == FALSE) {
             out <- coda::mcmc(mcmcRcppDMMVGP(y, X, params, n_chain=n_chains,
                                              file_name=paste0(progress_directory,
                                                               progress_file)))
@@ -199,7 +199,7 @@ fit_compositional_data <- function(
                                                                       progress_file)))
           }
         } else {
-          if (params$additive == FALSE) {
+          if (params$additive_correlation == FALSE) {
             out <- coda::mcmc(mcmcRcppDMMVGPMultiplicative(y, X, params, n_chain=n_chains,
                                                            file_name=paste0(progress_directory,
                                                                             progress_file)))
@@ -238,7 +238,6 @@ fit_compositional_data <- function(
              "progress_directory", "progress_file")
     sfLibrary(BayesComposition)
     sfLibrary(coda)
-
 
     out <- sfLapply(1:params$n_chains, parallel_chains)
     # , y=y, X=X, params=params,
