@@ -31,7 +31,7 @@ using namespace arma;
 
 Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const double& mu_X,
-                  const arma::vec& mu_current,
+                  const arma::rowvec& mu_current,
                   const arma::mat& beta_current,
                   const arma::rowvec& alpha_current,
                   const arma::rowvec& y_current,
@@ -306,7 +306,7 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
     if (sample_X) {
       for (int i=0; i<N_pred; i++) {
         double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, mu, beta, alpha_pred.row(i),
+        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, mu.t(), beta, alpha_pred.row(i),
                                    Y_pred.row(i), Xbs_pred.row(i), knots, d,
                                    degree, df, rangeX, count_pred(i), file_name);
         X_pred(i) = as<double>(ess_out["X"]);
