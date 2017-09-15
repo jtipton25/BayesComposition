@@ -13,7 +13,7 @@ library(knitr)
 library(ggplot2)
 library(gjam)
 library(rioja)
-library(analogue)
+# library(analogue)
 N <- 500
 N_pred <- 25
 d <- 4
@@ -91,7 +91,7 @@ sd_X <- sd(X)
 X_knots <- seq(min(X, na.rm=TRUE)-1.25*sd(X, na.rm=TRUE), 
                max(X, na.rm=TRUE)+1.25*sd(X, na.rm=TRUE), length=n_knots)
 
-params <- list(n_adapt=5000, n_mcmc=5000, n_thin=10, 
+params <- list(n_adapt=10000, n_mcmc=20000, n_thin=20, 
                likelihood="dirichlet-multinomial",
                function_type = "basis",
                additive_correlation=FALSE, 
@@ -100,6 +100,8 @@ params <- list(n_adapt=5000, n_mcmc=5000, n_thin=10,
 
 save_directory <- "./mvgp-test/"
 save_file <- "mvgp-dm-testate-bspline.RData"
+progress_directory <- "./mvgp-test/"
+progress_file <- "mvgp-dm-testate-bspline.txt"
 
 if (file.exists(paste0(save_directory, save_file))) {
   ## check if MCMC output exists
@@ -118,51 +120,42 @@ if (file.exists(paste0(save_directory, save_file))) {
 ```{r}
 ## extract posterior samples
 samples <- extract_compositional_samples(out)
+mu_post <- samples$mu
 alpha_post <- samples$alpha
 beta_post <- samples$beta
 ```
 
 
 
-
-
 ```{r}
 Rhat <- make_gelman_rubin(out)
 layout(matrix(1:3, 3, 1))
-hist(Rhat[grepl("alpha=", names(Rhat))], main = "Rhat for alpha")
+# hist(Rhat[grepl("alpha=", names(Rhat))], main = "Rhat for alpha")
+hist(Rhat[grepl("mu", names(Rhat))], main = "Rhat for mu")
 hist(Rhat[grepl("beta", names(Rhat))], main = "Rhat for beta")
 hist(Rhat, main="All parameters")
 Rhat[!is.finite(Rhat)] <- NA
 max(unlist(na.omit(Rhat)))
 ```
 
-<!-- ```{r, eval=TRUE} -->
-<!-- ##  -->
-<!-- ## Posterior plots -->
-<!-- ## -->
 
-<!-- layout(matrix(1:4, 2, 2)) -->
-<!-- matplot(beta_post[, , 1], type='l') -->
-<!-- abline(h=dat$beta[, 1], col='red', lwd=2) -->
-<!-- matplot(beta_post[, , 2], type='l') -->
-<!-- abline(h=dat$beta[, 2], col='red', lwd=2) -->
-<!-- matplot(beta_post[, , 3], type='l') -->
-<!-- abline(h=dat$beta[, 3], col='red', lwd=2) -->
-<!-- matplot(beta_post[, , 4], type='l') -->
-<!-- abline(h=dat$beta[, 4], col='red', lwd=2) -->
-<!-- ``` -->
 
-<!-- ```{r} -->
-<!-- layout(matrix(1:4, 2, 2)) -->
-<!-- matplot(alpha_post[, 1, ], type='l') -->
-<!-- abline(h=dat$alpha[1, ]) -->
-<!-- matplot(alpha_post[, 2, ], type='l') -->
-<!-- abline(h=dat$alpha[2, ]) -->
-<!-- matplot(alpha_post[, 3, ], type='l') -->
-<!-- abline(h=dat$alpha[3, ]) -->
-<!-- matplot(alpha_post[, 4, ], type='l') -->
-<!-- abline(h=dat$alpha[4, ]) -->
-<!-- ``` -->
+```{r, eval=TRUE}
+##
+## Posterior plots
+##
+
+layout(matrix(1:4, 2, 2))
+matplot(beta_post[, , 1], type='l')
+matplot(beta_post[, , 2], type='l')
+matplot(beta_post[, , 3], type='l')
+matplot(beta_post[, , 4], type='l')
+```
+
+```{r}
+layout(1)
+matplot(mu_post, type='l')
+```
 
 ```{r}
 alpha_post_mean <- apply(alpha_post, c(2, 3), mean)
