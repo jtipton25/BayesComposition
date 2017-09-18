@@ -17,7 +17,7 @@ namespace BayesComposition {
             require("BayesComposition", Rcpp::Named("quietly") = true);
             typedef int(*Ptr_validate)(const char*);
             static Ptr_validate p_validate = (Ptr_validate)
-                R_GetCCallable("BayesComposition", "BayesComposition_RcppExport_validate");
+                R_GetCCallable("BayesComposition", "_BayesComposition_RcppExport_validate");
             if (!p_validate(sig)) {
                 throw Rcpp::function_not_exported(
                     "C++ function with signature '" + std::string(sig) + "' not found in BayesComposition");
@@ -30,12 +30,12 @@ namespace BayesComposition {
         static Ptr_basis_cpp p_basis_cpp = NULL;
         if (p_basis_cpp == NULL) {
             validateSignature("double(*basis_cpp)(const double&,const int&,const int&,const arma::vec&)");
-            p_basis_cpp = (Ptr_basis_cpp)R_GetCCallable("BayesComposition", "BayesComposition_basis_cpp");
+            p_basis_cpp = (Ptr_basis_cpp)R_GetCCallable("BayesComposition", "_BayesComposition_basis_cpp");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_basis_cpp(Rcpp::wrap(x), Rcpp::wrap(degree), Rcpp::wrap(i), Rcpp::wrap(knots));
+            rcpp_result_gen = p_basis_cpp(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(degree)), Shield<SEXP>(Rcpp::wrap(i)), Shield<SEXP>(Rcpp::wrap(knots)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -49,12 +49,12 @@ namespace BayesComposition {
         static Ptr_bs_cpp p_bs_cpp = NULL;
         if (p_bs_cpp == NULL) {
             validateSignature("arma::mat(*bs_cpp)(const arma::vec&,const int&,const arma::vec&,const int&,const bool&,const arma::vec&)");
-            p_bs_cpp = (Ptr_bs_cpp)R_GetCCallable("BayesComposition", "BayesComposition_bs_cpp");
+            p_bs_cpp = (Ptr_bs_cpp)R_GetCCallable("BayesComposition", "_BayesComposition_bs_cpp");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_bs_cpp(Rcpp::wrap(x), Rcpp::wrap(df), Rcpp::wrap(interior_knots), Rcpp::wrap(degree), Rcpp::wrap(intercept), Rcpp::wrap(Boundary_knots));
+            rcpp_result_gen = p_bs_cpp(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(df)), Shield<SEXP>(Rcpp::wrap(interior_knots)), Shield<SEXP>(Rcpp::wrap(degree)), Shield<SEXP>(Rcpp::wrap(intercept)), Shield<SEXP>(Rcpp::wrap(Boundary_knots)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -68,12 +68,12 @@ namespace BayesComposition {
         static Ptr_colSums p_colSums = NULL;
         if (p_colSums == NULL) {
             validateSignature("arma::vec(*colSums)(const arma::mat&)");
-            p_colSums = (Ptr_colSums)R_GetCCallable("BayesComposition", "BayesComposition_colSums");
+            p_colSums = (Ptr_colSums)R_GetCCallable("BayesComposition", "_BayesComposition_colSums");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_colSums(Rcpp::wrap(X));
+            rcpp_result_gen = p_colSums(Shield<SEXP>(Rcpp::wrap(X)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -87,12 +87,12 @@ namespace BayesComposition {
         static Ptr_d_half_cauchy p_d_half_cauchy = NULL;
         if (p_d_half_cauchy == NULL) {
             validateSignature("double(*d_half_cauchy)(double&,double&,bool)");
-            p_d_half_cauchy = (Ptr_d_half_cauchy)R_GetCCallable("BayesComposition", "BayesComposition_d_half_cauchy");
+            p_d_half_cauchy = (Ptr_d_half_cauchy)R_GetCCallable("BayesComposition", "_BayesComposition_d_half_cauchy");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_d_half_cauchy(Rcpp::wrap(x), Rcpp::wrap(sigma), Rcpp::wrap(logd));
+            rcpp_result_gen = p_d_half_cauchy(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(sigma)), Shield<SEXP>(Rcpp::wrap(logd)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -106,12 +106,12 @@ namespace BayesComposition {
         static Ptr_dMVN p_dMVN = NULL;
         if (p_dMVN == NULL) {
             validateSignature("double(*dMVN)(const arma::mat&,const arma::vec&,const arma::mat&,const bool)");
-            p_dMVN = (Ptr_dMVN)R_GetCCallable("BayesComposition", "BayesComposition_dMVN");
+            p_dMVN = (Ptr_dMVN)R_GetCCallable("BayesComposition", "_BayesComposition_dMVN");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_dMVN(Rcpp::wrap(y), Rcpp::wrap(mu), Rcpp::wrap(Sigma_chol), Rcpp::wrap(logd));
+            rcpp_result_gen = p_dMVN(Shield<SEXP>(Rcpp::wrap(y)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma_chol)), Shield<SEXP>(Rcpp::wrap(logd)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -125,12 +125,12 @@ namespace BayesComposition {
         static Ptr_dMVNChol p_dMVNChol = NULL;
         if (p_dMVNChol == NULL) {
             validateSignature("double(*dMVNChol)(const arma::vec&,const arma::vec&,const arma::mat&,const bool)");
-            p_dMVNChol = (Ptr_dMVNChol)R_GetCCallable("BayesComposition", "BayesComposition_dMVNChol");
+            p_dMVNChol = (Ptr_dMVNChol)R_GetCCallable("BayesComposition", "_BayesComposition_dMVNChol");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_dMVNChol(Rcpp::wrap(y), Rcpp::wrap(mu), Rcpp::wrap(Sigma_chol), Rcpp::wrap(logd));
+            rcpp_result_gen = p_dMVNChol(Shield<SEXP>(Rcpp::wrap(y)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma_chol)), Shield<SEXP>(Rcpp::wrap(logd)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -144,12 +144,12 @@ namespace BayesComposition {
         static Ptr_LL_DM p_LL_DM = NULL;
         if (p_LL_DM == NULL) {
             validateSignature("double(*LL_DM)(const arma::mat&,const arma::mat&,const double&,const double&,const arma::vec&)");
-            p_LL_DM = (Ptr_LL_DM)R_GetCCallable("BayesComposition", "BayesComposition_LL_DM");
+            p_LL_DM = (Ptr_LL_DM)R_GetCCallable("BayesComposition", "_BayesComposition_LL_DM");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_LL_DM(Rcpp::wrap(alpha), Rcpp::wrap(Y), Rcpp::wrap(N), Rcpp::wrap(d), Rcpp::wrap(count));
+            rcpp_result_gen = p_LL_DM(Shield<SEXP>(Rcpp::wrap(alpha)), Shield<SEXP>(Rcpp::wrap(Y)), Shield<SEXP>(Rcpp::wrap(N)), Shield<SEXP>(Rcpp::wrap(d)), Shield<SEXP>(Rcpp::wrap(count)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -163,12 +163,12 @@ namespace BayesComposition {
         static Ptr_LL_DM_row p_LL_DM_row = NULL;
         if (p_LL_DM_row == NULL) {
             validateSignature("double(*LL_DM_row)(const arma::rowvec&,const arma::rowvec&,const double&,const double&)");
-            p_LL_DM_row = (Ptr_LL_DM_row)R_GetCCallable("BayesComposition", "BayesComposition_LL_DM_row");
+            p_LL_DM_row = (Ptr_LL_DM_row)R_GetCCallable("BayesComposition", "_BayesComposition_LL_DM_row");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_LL_DM_row(Rcpp::wrap(alpha), Rcpp::wrap(Y), Rcpp::wrap(d), Rcpp::wrap(count));
+            rcpp_result_gen = p_LL_DM_row(Shield<SEXP>(Rcpp::wrap(alpha)), Shield<SEXP>(Rcpp::wrap(Y)), Shield<SEXP>(Rcpp::wrap(d)), Shield<SEXP>(Rcpp::wrap(count)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -182,12 +182,12 @@ namespace BayesComposition {
         static Ptr_logDet p_logDet = NULL;
         if (p_logDet == NULL) {
             validateSignature("double(*logDet)(const arma::mat)");
-            p_logDet = (Ptr_logDet)R_GetCCallable("BayesComposition", "BayesComposition_logDet");
+            p_logDet = (Ptr_logDet)R_GetCCallable("BayesComposition", "_BayesComposition_logDet");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_logDet(Rcpp::wrap(Sig));
+            rcpp_result_gen = p_logDet(Shield<SEXP>(Rcpp::wrap(Sig)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -201,12 +201,12 @@ namespace BayesComposition {
         static Ptr_logDetChol p_logDetChol = NULL;
         if (p_logDetChol == NULL) {
             validateSignature("double(*logDetChol)(const arma::mat)");
-            p_logDetChol = (Ptr_logDetChol)R_GetCCallable("BayesComposition", "BayesComposition_logDetChol");
+            p_logDetChol = (Ptr_logDetChol)R_GetCCallable("BayesComposition", "_BayesComposition_logDetChol");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_logDetChol(Rcpp::wrap(Sig_chol));
+            rcpp_result_gen = p_logDetChol(Shield<SEXP>(Rcpp::wrap(Sig_chol)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -220,12 +220,12 @@ namespace BayesComposition {
         static Ptr_logit p_logit = NULL;
         if (p_logit == NULL) {
             validateSignature("arma::vec(*logit)(const arma::vec&)");
-            p_logit = (Ptr_logit)R_GetCCallable("BayesComposition", "BayesComposition_logit");
+            p_logit = (Ptr_logit)R_GetCCallable("BayesComposition", "_BayesComposition_logit");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_logit(Rcpp::wrap(phi));
+            rcpp_result_gen = p_logit(Shield<SEXP>(Rcpp::wrap(phi)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -239,12 +239,12 @@ namespace BayesComposition {
         static Ptr_expit p_expit = NULL;
         if (p_expit == NULL) {
             validateSignature("arma::vec(*expit)(const arma::vec&)");
-            p_expit = (Ptr_expit)R_GetCCallable("BayesComposition", "BayesComposition_expit");
+            p_expit = (Ptr_expit)R_GetCCallable("BayesComposition", "_BayesComposition_expit");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_expit(Rcpp::wrap(phi));
+            rcpp_result_gen = p_expit(Shield<SEXP>(Rcpp::wrap(phi)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -258,12 +258,12 @@ namespace BayesComposition {
         static Ptr_makeUpperLKJ p_makeUpperLKJ = NULL;
         if (p_makeUpperLKJ == NULL) {
             validateSignature("arma::mat(*makeUpperLKJ)(const arma::vec&,const int&)");
-            p_makeUpperLKJ = (Ptr_makeUpperLKJ)R_GetCCallable("BayesComposition", "BayesComposition_makeUpperLKJ");
+            p_makeUpperLKJ = (Ptr_makeUpperLKJ)R_GetCCallable("BayesComposition", "_BayesComposition_makeUpperLKJ");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_makeUpperLKJ(Rcpp::wrap(x), Rcpp::wrap(d));
+            rcpp_result_gen = p_makeUpperLKJ(Shield<SEXP>(Rcpp::wrap(x)), Shield<SEXP>(Rcpp::wrap(d)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -277,12 +277,12 @@ namespace BayesComposition {
         static Ptr_makeRLKJ p_makeRLKJ = NULL;
         if (p_makeRLKJ == NULL) {
             validateSignature("Rcpp::List(*makeRLKJ)(const arma::vec&,const int&,bool,bool)");
-            p_makeRLKJ = (Ptr_makeRLKJ)R_GetCCallable("BayesComposition", "BayesComposition_makeRLKJ");
+            p_makeRLKJ = (Ptr_makeRLKJ)R_GetCCallable("BayesComposition", "_BayesComposition_makeRLKJ");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_makeRLKJ(Rcpp::wrap(xi), Rcpp::wrap(d), Rcpp::wrap(cholesky), Rcpp::wrap(jacobian));
+            rcpp_result_gen = p_makeRLKJ(Shield<SEXP>(Rcpp::wrap(xi)), Shield<SEXP>(Rcpp::wrap(d)), Shield<SEXP>(Rcpp::wrap(cholesky)), Shield<SEXP>(Rcpp::wrap(jacobian)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -296,12 +296,12 @@ namespace BayesComposition {
         static Ptr_makeCRPS p_makeCRPS = NULL;
         if (p_makeCRPS == NULL) {
             validateSignature("arma::vec(*makeCRPS)(const arma::mat&,const arma::vec&,const int&)");
-            p_makeCRPS = (Ptr_makeCRPS)R_GetCCallable("BayesComposition", "BayesComposition_makeCRPS");
+            p_makeCRPS = (Ptr_makeCRPS)R_GetCCallable("BayesComposition", "_BayesComposition_makeCRPS");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_makeCRPS(Rcpp::wrap(estimate), Rcpp::wrap(truth), Rcpp::wrap(n_samps));
+            rcpp_result_gen = p_makeCRPS(Shield<SEXP>(Rcpp::wrap(estimate)), Shield<SEXP>(Rcpp::wrap(truth)), Shield<SEXP>(Rcpp::wrap(n_samps)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -315,12 +315,12 @@ namespace BayesComposition {
         static Ptr_makeDistARMA p_makeDistARMA = NULL;
         if (p_makeDistARMA == NULL) {
             validateSignature("arma::mat(*makeDistARMA)(const arma::mat&,const arma::mat&)");
-            p_makeDistARMA = (Ptr_makeDistARMA)R_GetCCallable("BayesComposition", "BayesComposition_makeDistARMA");
+            p_makeDistARMA = (Ptr_makeDistARMA)R_GetCCallable("BayesComposition", "_BayesComposition_makeDistARMA");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_makeDistARMA(Rcpp::wrap(coords1), Rcpp::wrap(coords2));
+            rcpp_result_gen = p_makeDistARMA(Shield<SEXP>(Rcpp::wrap(coords1)), Shield<SEXP>(Rcpp::wrap(coords2)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -334,12 +334,12 @@ namespace BayesComposition {
         static Ptr_makeQinv p_makeQinv = NULL;
         if (p_makeQinv == NULL) {
             validateSignature("arma::mat(*makeQinv)(const double&,const int&)");
-            p_makeQinv = (Ptr_makeQinv)R_GetCCallable("BayesComposition", "BayesComposition_makeQinv");
+            p_makeQinv = (Ptr_makeQinv)R_GetCCallable("BayesComposition", "_BayesComposition_makeQinv");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_makeQinv(Rcpp::wrap(theta), Rcpp::wrap(t));
+            rcpp_result_gen = p_makeQinv(Shield<SEXP>(Rcpp::wrap(theta)), Shield<SEXP>(Rcpp::wrap(t)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -353,12 +353,12 @@ namespace BayesComposition {
         static Ptr_mvrnormArma p_mvrnormArma = NULL;
         if (p_mvrnormArma == NULL) {
             validateSignature("arma::mat(*mvrnormArma)(const int&,const arma::vec&,const arma::mat&)");
-            p_mvrnormArma = (Ptr_mvrnormArma)R_GetCCallable("BayesComposition", "BayesComposition_mvrnormArma");
+            p_mvrnormArma = (Ptr_mvrnormArma)R_GetCCallable("BayesComposition", "_BayesComposition_mvrnormArma");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_mvrnormArma(Rcpp::wrap(n), Rcpp::wrap(mu), Rcpp::wrap(Sigma));
+            rcpp_result_gen = p_mvrnormArma(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -372,12 +372,12 @@ namespace BayesComposition {
         static Ptr_mvrnormArmaVec p_mvrnormArmaVec = NULL;
         if (p_mvrnormArmaVec == NULL) {
             validateSignature("arma::vec(*mvrnormArmaVec)(const arma::vec&,const arma::mat&)");
-            p_mvrnormArmaVec = (Ptr_mvrnormArmaVec)R_GetCCallable("BayesComposition", "BayesComposition_mvrnormArmaVec");
+            p_mvrnormArmaVec = (Ptr_mvrnormArmaVec)R_GetCCallable("BayesComposition", "_BayesComposition_mvrnormArmaVec");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_mvrnormArmaVec(Rcpp::wrap(mu), Rcpp::wrap(Sigma));
+            rcpp_result_gen = p_mvrnormArmaVec(Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -391,12 +391,12 @@ namespace BayesComposition {
         static Ptr_mvrnormArmaChol p_mvrnormArmaChol = NULL;
         if (p_mvrnormArmaChol == NULL) {
             validateSignature("arma::mat(*mvrnormArmaChol)(const int&,const arma::vec&,const arma::mat&)");
-            p_mvrnormArmaChol = (Ptr_mvrnormArmaChol)R_GetCCallable("BayesComposition", "BayesComposition_mvrnormArmaChol");
+            p_mvrnormArmaChol = (Ptr_mvrnormArmaChol)R_GetCCallable("BayesComposition", "_BayesComposition_mvrnormArmaChol");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_mvrnormArmaChol(Rcpp::wrap(n), Rcpp::wrap(mu), Rcpp::wrap(Sigma_chol));
+            rcpp_result_gen = p_mvrnormArmaChol(Shield<SEXP>(Rcpp::wrap(n)), Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma_chol)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -410,12 +410,12 @@ namespace BayesComposition {
         static Ptr_mvrnormArmaVecChol p_mvrnormArmaVecChol = NULL;
         if (p_mvrnormArmaVecChol == NULL) {
             validateSignature("arma::vec(*mvrnormArmaVecChol)(const arma::vec&,const arma::mat&)");
-            p_mvrnormArmaVecChol = (Ptr_mvrnormArmaVecChol)R_GetCCallable("BayesComposition", "BayesComposition_mvrnormArmaVecChol");
+            p_mvrnormArmaVecChol = (Ptr_mvrnormArmaVecChol)R_GetCCallable("BayesComposition", "_BayesComposition_mvrnormArmaVecChol");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_mvrnormArmaVecChol(Rcpp::wrap(mu), Rcpp::wrap(Sigma_chol));
+            rcpp_result_gen = p_mvrnormArmaVecChol(Shield<SEXP>(Rcpp::wrap(mu)), Shield<SEXP>(Rcpp::wrap(Sigma_chol)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -429,12 +429,12 @@ namespace BayesComposition {
         static Ptr_rMVNArma p_rMVNArma = NULL;
         if (p_rMVNArma == NULL) {
             validateSignature("arma::vec(*rMVNArma)(arma::mat&,arma::vec&)");
-            p_rMVNArma = (Ptr_rMVNArma)R_GetCCallable("BayesComposition", "BayesComposition_rMVNArma");
+            p_rMVNArma = (Ptr_rMVNArma)R_GetCCallable("BayesComposition", "_BayesComposition_rMVNArma");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_rMVNArma(Rcpp::wrap(A), Rcpp::wrap(b));
+            rcpp_result_gen = p_rMVNArma(Shield<SEXP>(Rcpp::wrap(A)), Shield<SEXP>(Rcpp::wrap(b)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -448,12 +448,12 @@ namespace BayesComposition {
         static Ptr_rMVNArmaScalar p_rMVNArmaScalar = NULL;
         if (p_rMVNArmaScalar == NULL) {
             validateSignature("double(*rMVNArmaScalar)(const double&,const double&)");
-            p_rMVNArmaScalar = (Ptr_rMVNArmaScalar)R_GetCCallable("BayesComposition", "BayesComposition_rMVNArmaScalar");
+            p_rMVNArmaScalar = (Ptr_rMVNArmaScalar)R_GetCCallable("BayesComposition", "_BayesComposition_rMVNArmaScalar");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_rMVNArmaScalar(Rcpp::wrap(a), Rcpp::wrap(b));
+            rcpp_result_gen = p_rMVNArmaScalar(Shield<SEXP>(Rcpp::wrap(a)), Shield<SEXP>(Rcpp::wrap(b)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -467,12 +467,12 @@ namespace BayesComposition {
         static Ptr_seq_lenC p_seq_lenC = NULL;
         if (p_seq_lenC == NULL) {
             validateSignature("arma::vec(*seq_lenC)(const int&)");
-            p_seq_lenC = (Ptr_seq_lenC)R_GetCCallable("BayesComposition", "BayesComposition_seq_lenC");
+            p_seq_lenC = (Ptr_seq_lenC)R_GetCCallable("BayesComposition", "_BayesComposition_seq_lenC");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_seq_lenC(Rcpp::wrap(n));
+            rcpp_result_gen = p_seq_lenC(Shield<SEXP>(Rcpp::wrap(n)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -486,12 +486,12 @@ namespace BayesComposition {
         static Ptr_updateTuning p_updateTuning = NULL;
         if (p_updateTuning == NULL) {
             validateSignature("void(*updateTuning)(const int,double&,double&)");
-            p_updateTuning = (Ptr_updateTuning)R_GetCCallable("BayesComposition", "BayesComposition_updateTuning");
+            p_updateTuning = (Ptr_updateTuning)R_GetCCallable("BayesComposition", "_BayesComposition_updateTuning");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_updateTuning(Rcpp::wrap(k), Rcpp::wrap(accept_tmp), Rcpp::wrap(tune));
+            rcpp_result_gen = p_updateTuning(Shield<SEXP>(Rcpp::wrap(k)), Shield<SEXP>(Rcpp::wrap(accept_tmp)), Shield<SEXP>(Rcpp::wrap(tune)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -504,12 +504,12 @@ namespace BayesComposition {
         static Ptr_updateTuningVec p_updateTuningVec = NULL;
         if (p_updateTuningVec == NULL) {
             validateSignature("void(*updateTuningVec)(const int,arma::vec&,arma::vec&)");
-            p_updateTuningVec = (Ptr_updateTuningVec)R_GetCCallable("BayesComposition", "BayesComposition_updateTuningVec");
+            p_updateTuningVec = (Ptr_updateTuningVec)R_GetCCallable("BayesComposition", "_BayesComposition_updateTuningVec");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_updateTuningVec(Rcpp::wrap(k), Rcpp::wrap(accept_tmp), Rcpp::wrap(tune));
+            rcpp_result_gen = p_updateTuningVec(Shield<SEXP>(Rcpp::wrap(k)), Shield<SEXP>(Rcpp::wrap(accept_tmp)), Shield<SEXP>(Rcpp::wrap(tune)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -522,12 +522,12 @@ namespace BayesComposition {
         static Ptr_updateTuningMat p_updateTuningMat = NULL;
         if (p_updateTuningMat == NULL) {
             validateSignature("void(*updateTuningMat)(const int,arma::mat&,arma::mat&)");
-            p_updateTuningMat = (Ptr_updateTuningMat)R_GetCCallable("BayesComposition", "BayesComposition_updateTuningMat");
+            p_updateTuningMat = (Ptr_updateTuningMat)R_GetCCallable("BayesComposition", "_BayesComposition_updateTuningMat");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_updateTuningMat(Rcpp::wrap(k), Rcpp::wrap(accept_tmp), Rcpp::wrap(tune));
+            rcpp_result_gen = p_updateTuningMat(Shield<SEXP>(Rcpp::wrap(k)), Shield<SEXP>(Rcpp::wrap(accept_tmp)), Shield<SEXP>(Rcpp::wrap(tune)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -540,12 +540,12 @@ namespace BayesComposition {
         static Ptr_updateTuningMV p_updateTuningMV = NULL;
         if (p_updateTuningMV == NULL) {
             validateSignature("void(*updateTuningMV)(const int&,double&,double&,arma::mat&,arma::mat&,arma::mat)");
-            p_updateTuningMV = (Ptr_updateTuningMV)R_GetCCallable("BayesComposition", "BayesComposition_updateTuningMV");
+            p_updateTuningMV = (Ptr_updateTuningMV)R_GetCCallable("BayesComposition", "_BayesComposition_updateTuningMV");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_updateTuningMV(Rcpp::wrap(k), Rcpp::wrap(accept_rate), Rcpp::wrap(lambda), Rcpp::wrap(batch_samples), Rcpp::wrap(Sigma_tune), Rcpp::wrap(Sigma_tune_chol));
+            rcpp_result_gen = p_updateTuningMV(Shield<SEXP>(Rcpp::wrap(k)), Shield<SEXP>(Rcpp::wrap(accept_rate)), Shield<SEXP>(Rcpp::wrap(lambda)), Shield<SEXP>(Rcpp::wrap(batch_samples)), Shield<SEXP>(Rcpp::wrap(Sigma_tune)), Shield<SEXP>(Rcpp::wrap(Sigma_tune_chol)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
@@ -558,12 +558,12 @@ namespace BayesComposition {
         static Ptr_updateTuningMVMat p_updateTuningMVMat = NULL;
         if (p_updateTuningMVMat == NULL) {
             validateSignature("void(*updateTuningMVMat)(const int&,arma::vec&,arma::vec&,arma::cube&,arma::cube&,arma::cube)");
-            p_updateTuningMVMat = (Ptr_updateTuningMVMat)R_GetCCallable("BayesComposition", "BayesComposition_updateTuningMVMat");
+            p_updateTuningMVMat = (Ptr_updateTuningMVMat)R_GetCCallable("BayesComposition", "_BayesComposition_updateTuningMVMat");
         }
         RObject rcpp_result_gen;
         {
             RNGScope RCPP_rngScope_gen;
-            rcpp_result_gen = p_updateTuningMVMat(Rcpp::wrap(k), Rcpp::wrap(accept_rate), Rcpp::wrap(lambda), Rcpp::wrap(batch_samples), Rcpp::wrap(Sigma_tune), Rcpp::wrap(Sigma_tune_chol));
+            rcpp_result_gen = p_updateTuningMVMat(Shield<SEXP>(Rcpp::wrap(k)), Shield<SEXP>(Rcpp::wrap(accept_rate)), Shield<SEXP>(Rcpp::wrap(lambda)), Shield<SEXP>(Rcpp::wrap(batch_samples)), Shield<SEXP>(Rcpp::wrap(Sigma_tune)), Shield<SEXP>(Rcpp::wrap(Sigma_tune_chol)));
         }
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();

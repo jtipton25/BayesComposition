@@ -15,7 +15,7 @@ using namespace arma;
 // Author: John Tipton
 //
 // Created 05.15.2017
-// Last updated 07.19.2017
+// Last updated 09.14.2017
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Functions for sampling ////////////////////////////
@@ -74,7 +74,18 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   arma::vec ones_B(B, arma::fill::ones);
   arma::vec zero_df(df, arma::fill::zeros);
 
-  // default normal prior for regression coefficients
+  // default normal prior for mean of overall means
+  double mu_mu = 0.0;
+  if (params.containsElementNamed("mu_mu")) {
+    mu_mu = as<double>(params["mu_mu"]);
+  }
+  // default prior for standard deviation of overall means
+  double sigma_mu = 5.0;
+  if (params.containsElementNamed("sigma_mu")) {
+    mu_mu = as<double>(params["sigma_mu"]);
+  }
+
+    // default normal prior for regression coefficients
   arma::vec mu_beta(df, arma::fill::zeros);
   if (params.containsElementNamed("mu_beta")) {
     mu_beta = as<vec>(params["mu_beta"]);
@@ -88,28 +99,17 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   arma::mat Sigma_beta_inv = inv_sympd(Sigma_beta);
   arma::mat Sigma_beta_chol = chol(Sigma_beta);
 
-  // // default half cauchy scale for Covariance diagonal variance tau2
-  // double s2_tau2 = 1.0;
-  // if (params.containsElementNamed("s2_tau2")) {
-  //   s2_tau2 = as<double>(params["s2_tau2"]);
-  // }
-  // // default half cauchy scale for Covariance diagonal variance tau2
-  // double A_s2 = 1.0;
-  // if (params.containsElementNamed("A_s2")) {
-  //   A_s2 = as<double>(params["A_s2"]);
-  // }
-
+  // default mu tuning parameter
+  double mu_tune_tmp = 1.0;
+  if (params.containsElementNamed("mu_tune")) {
+    mu_tune_tmp = as<double>(params["mu_tune"]);
+  }
   // default beta tuning parameter
   arma::vec lambda_beta_tune(d, arma::fill::ones);
   lambda_beta_tune *= 1.0 / pow(3.0, 0.8);
   if (params.containsElementNamed("lambda_beta_tune")) {
     lambda_beta_tune = as<vec>(params["lambda_beta_tune"]);
   }
-  // // default tau2 tuning parameter
-  // double lambda_tau2_tune = 0.25;
-  // if (params.containsElementNamed("lambda_tau2_tune")) {
-  //   lambda_tau2_tune = as<double>(params["lambda_tau2_tune"]);
-  // }
 
   double minX = min(X);
   if (params.containsElementNamed("minX")) {
@@ -138,6 +138,26 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   //
 
   //
+  // Default for mu
+  //
+
+  arma::vec mu(d);
+  for (int j=0; j<d; j++) {
+    mu(j) = R::rnorm(mu_mu, sigma_mu);
+  }
+  if (params.containsElementNamed("mu")) {
+    mu = as<vec>(params["mu"]);
+  }
+  bool sample_mu = true;
+  if (params.containsElementNamed("sample_mu")) {
+    sample_mu = as<bool>(params["sample_mu"]);
+  }
+  arma::mat mu_mat(N, d, arma::fill::zeros);
+  for (int i=0; i<N; i++) {
+    mu_mat.row(i) = mu.t();
+  }
+
+  //
   // Default for beta
   //
 
@@ -153,44 +173,20 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     sample_beta = as<bool>(params["sample_beta"]);
   }
 
-  // //
-  // // Variance parameter tau2 and hyperprior lambda_tau2
-  // //
-  //
-  // arma::vec lambda_tau2(d);
-  // arma::vec tau2(d);
-  // for (int j=0; j<d; j++) {
-  //   lambda_tau2(j) = R::rgamma(0.5, 1.0 / s2_tau2);
-  //   tau2(j) = std::max(std::min(R::rgamma(0.5, 1.0 / lambda_tau2(j)), 5.0), 1.0);
-  // }
-  // arma::vec tau = sqrt(tau2);
-  // if (params.containsElementNamed("tau2")) {
-  //   tau2 = as<vec>(params["tau2"]);
-  //   tau = sqrt(tau2);
-  // }
-  // bool sample_tau2 = true;
-  // if (params.containsElementNamed("sample_tau2")) {
-  //   sample_tau2 = as<bool>(params["sample_tau2"]);
-  // }
-  // arma::mat R(d, d, arma:fill::eye);
-  arma::mat alpha = exp(Xbs * beta);
+  arma::mat alpha = exp(mu_mat + Xbs * beta);
 
   // setup save variables
   int n_save = n_mcmc / n_thin;
+  arma::mat mu_save(n_save, d, arma::fill::zeros);
   arma::cube alpha_save(n_save, N, d, arma::fill::zeros);
   arma::cube beta_save(n_save, df, d, arma::fill::zeros);
-  // arma::mat tau2_save(n_save, d, arma::fill::zeros);
 
   // initialize tuning
 
-  // double s2_tau2_accept = 0.0;
-  // double s2_tau2_accept_batch = 0.0;
-  // double s2_tau2_tune = 1.0;
-  // double tau2_accept = 0.0;
-  // double tau2_accept_batch = 0.0;
-  // arma::mat tau2_batch(50, d, arma::fill::zeros);
-  // arma::mat Sigma_tau2_tune(d, d, arma::fill::eye);
-  // arma::mat Sigma_tau2_tune_chol = chol(Sigma_tau2_tune);
+  arma::vec mu_accept(d, arma::fill::zeros);
+  arma::vec mu_accept_batch(d, arma::fill::zeros);
+  arma::vec mu_tune(d, arma::fill::ones);
+  mu_tune *= mu_tune_tmp;
   arma::vec beta_accept(d, arma::fill::zeros);
   arma::vec beta_accept_batch(d, arma::fill::zeros);
   arma::cube beta_batch(50, df, d, arma::fill::zeros);
@@ -228,6 +224,37 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     Rcpp::checkUserInterrupt();
 
     //
+    // Sample mu - MH
+    //
+
+    if (sample_mu) {
+      for (int j=0; j<d; j++) {
+        arma::vec mu_star = mu;
+        mu_star(j) += R::rnorm(0.0, mu_tune(j));
+        arma::mat mu_mat_star = mu_mat;
+        for (int i=0; i<N; i++) {
+          mu_mat_star.row(i) = mu_star.t();
+        }
+        arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
+        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+          R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
+        double mh2 = LL_DM(alpha, Y, N, d, count) +
+          R::dnorm4(mu(j), mu_mu, sigma_mu, true);
+        double mh = exp(mh1 - mh2);
+        if (mh > R::runif(0, 1.0)) {
+          mu = mu_star;
+          mu_mat = mu_mat_star;
+          alpha = alpha_star;
+          mu_accept_batch(j) += 1.0 / 50.0;
+        }
+      }
+      // update tuning
+      if ((k+1) % 50 == 0){
+        updateTuningVec(k, mu_accept_batch, mu_tune);
+      }
+    }
+
+    //
     // Sample beta - block MH
     //
 
@@ -237,7 +264,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
         beta_star.col(j) +=
           mvrnormArmaVecChol(zero_df,
                              lambda_beta_tune(j) * Sigma_beta_tune_chol.slice(j));
-        arma::mat alpha_star = exp(Xbs * beta_star);
+        arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
         double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -257,109 +284,9 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
                           Sigma_beta_tune_chol);
       }
     }
-
-    // //
-    // // sample tau2
-    // //
-    //
-    // if (sample_tau2) {
-    //   arma::vec log_tau2_star = log(tau2);
-    //   if (Sigma_reference_category) {
-    //     // first element is fixed at one
-    //     log_tau2_star.subvec(1, d-2) =
-    //       mvrnormArmaVecChol(log(tau2.subvec(1, d-2)),
-    //                          lambda_tau2_tune * Sigma_tau2_tune_chol);
-    //   } else {
-    //     log_tau2_star =
-    //       mvrnormArmaVecChol(log(tau2),
-    //                          lambda_tau2_tune * Sigma_tau2_tune_chol);
-    //   }
-    //   arma::vec tau2_star = exp(log_tau2_star);
-    //   if (all(tau2_star > 0.0)) {
-    //     arma::vec tau_star = sqrt(tau2_star);
-    //     arma::mat R_tau_star = R * diagmat(tau_star);
-    //     arma::mat zeta_star = Z * eta_star * R_tau_star;
-    //     arma::mat alpha_star(N, d, arma::fill::ones);
-    //     for (int i=0; i<N; i++) {
-    //       arma::rowvec tmp_row(d, arma::fill::ones);
-    //       tmp_row.subvec(1, d-1) = exp(mu.t() + zeta_star.row(i));
-    //       alpha_star.row(i) = tmp_row / sum(tmp_row);
-    //     }
-    //     double mh1 = LL(alpha_star, Y, N, d, count) +
-    //       // jacobian of log-scale proposal
-    //       sum(log_tau2_star);
-    //     double mh2 = LL(alpha, Y, N, d, count) +
-    //       // jacobian of log-scale proposal
-    //       sum(log(tau2));
-    //     // prior
-    //     if (Sigma_reference_category) {
-    //       for (int j=1; j<(d-1); j++) {
-    //         mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //         mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //       }
-    //     } else {
-    //       for (int j=0; j<(d-1); j++) {
-    //         mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //         mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //       }
-    //     }
-    //     double mh = exp(mh1-mh2);
-    //     if (mh > R::runif(0.0, 1.0)) {
-    //       tau2 = tau2_star;
-    //       tau = tau_star;
-    //       R_tau = R_tau_star;
-    //       zeta = zeta_star;
-    //       alpha = alpha_star;
-    //       tau2_accept_batch += 1.0 / 50.0;
-    //     }
-    //   }
-    //   // update tuning
-    //   if (Sigma_reference_category) {
-    //     tau2_batch.row(k % 50) = log(tau2.subvec(1, d-2)).t();
-    //   } else {
-    //     tau2_batch.row(k % 50) = log(tau2).t();
-    //   }
-    //   if ((k+1) % 50 == 0){
-    //     updateTuningMV(k, tau2_accept_batch, lambda_tau2_tune, tau2_batch,
-    //                    Sigma_tau2_tune, Sigma_tau2_tune_chol);
-    //   }
-    // }
-    //
-    // //
-    // // sample lambda_tau2
-    // //
-    //
-    // for (int j=0; j<(d-1); j++) {
-    //   lambda_tau2(j) = R::rgamma(1.0, 1.0 / (s2_tau2 + tau2(j)));
-    // }
-    //
-    // //
-    // // sample s2_tau2
-    // //
-    //
-    // if (pool_s2_tau2) {
-    //   double s2_tau2_star = s2_tau2 + R::rnorm(0, s2_tau2_tune);
-    //   if (s2_tau2_star > 0 && s2_tau2_star < A_s2) {
-    //     double mh1 = 0.0;
-    //     double mh2 = 0.0;
-    //     for (int j=0; j<(d-1); j++) {
-    //       mh1 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2_star, true);
-    //       mh2 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2, true);
-    //     }
-    //     double mh = exp(mh1-mh2);
-    //     if (mh > R::runif(0.0, 1.0)) {
-    //       s2_tau2 = s2_tau2_star;
-    //       s2_tau2_accept += 1.0 / n_mcmc;
-    //       s2_tau2_accept_batch += 1.0 / 50.0;
-    //     }
-    //   }
-    //   // update tuning
-    //   if ((k+1) % 50 == 0){
-    //     updateTuning(k, s2_tau2_accept_batch, s2_tau2_tune);
-    //   }
-    // }
-    //
+    // end of MCMC iteration
   }
+  // end of MCMC adaptation
 
   Rprintf("Starting MCMC fit for chain %d, running for %d iterations \n",
           n_chain, n_mcmc);
@@ -386,6 +313,33 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     Rcpp::checkUserInterrupt();
 
     //
+    // Sample mu - MH
+    //
+
+    if (sample_mu) {
+      for (int j=0; j<d; j++) {
+        arma::vec mu_star = mu;
+        mu_star(j) += R::rnorm(0.0, mu_tune(j));
+        arma::mat mu_mat_star = mu_mat;
+        for (int i=0; i<N; i++) {
+          mu_mat_star.row(i) = mu_star.t();
+        }
+        arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
+        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+          R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
+        double mh2 = LL_DM(alpha, Y, N, d, count) +
+          R::dnorm4(mu(j), mu_mu, sigma_mu, true);
+        double mh = exp(mh1 - mh2);
+        if (mh > R::runif(0, 1.0)) {
+          mu = mu_star;
+          mu_mat = mu_mat_star;
+          alpha = alpha_star;
+          mu_accept(j) += 1.0 / n_mcmc;
+        }
+      }
+    }
+
+    //
     // Sample beta - block MH
     //
 
@@ -396,7 +350,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
           mvrnormArmaVecChol(zero_df,
                              lambda_beta_tune(j) * Sigma_beta_tune_chol.slice(j));
 
-        arma::mat alpha_star = exp(Xbs * beta_star);
+        arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
         double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -411,112 +365,33 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     }
 
 
-    // //
-    // // sample tau2
-    // //
-    //
-    // if (sample_tau2) {
-    //   arma::vec log_tau2_star = log(tau2);
-    //   if (Sigma_reference_category) {
-    //     // first element is fixed at one
-    //     log_tau2_star.subvec(1, d-2) =
-    //       mvrnormArmaVecChol(log(tau2.subvec(1, d-2)),
-    //                          lambda_tau2_tune * Sigma_tau2_tune_chol);
-    //   } else {
-    //     log_tau2_star =
-    //       mvrnormArmaVecChol(log(tau2),
-    //                          lambda_tau2_tune * Sigma_tau2_tune_chol);
-    //   }
-    //   arma::vec tau2_star = exp(log_tau2_star);
-    //   if (all(tau2_star > 0.0)) {
-    //     arma::vec tau_star = sqrt(tau2_star);
-    //     arma::mat R_tau_star = R * diagmat(tau_star);
-    //     arma::mat zeta_star = Z * eta_star * R_tau_star;
-    //     arma::mat alpha_star(N, d, arma::fill::ones);
-    //     for (int i=0; i<N; i++) {
-    //       arma::rowvec tmp_row(d, arma::fill::ones);
-    //       tmp_row.subvec(1, d-1) = exp(mu.t() + zeta_star.row(i));
-    //       alpha_star.row(i) = tmp_row / sum(tmp_row);
-    //     }
-    //     double mh1 = LL(alpha_star, Y, N, d, count) +
-    //       // jacobian of log-scale proposal
-    //       sum(log_tau2_star);
-    //     double mh2 = LL(alpha, Y, N, d, count) +
-    //       // jacobian of log-scale proposal
-    //       sum(log(tau2));
-    //     // prior
-    //     if (Sigma_reference_category) {
-    //       for (int j=1; j<(d-1); j++) {
-    //         mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //         mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //       }
-    //     } else {
-    //       for (int j=0; j<(d-1); j++) {
-    //         mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //         mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
-    //       }
-    //     }
-    //     double mh = exp(mh1-mh2);
-    //     if (mh > R::runif(0.0, 1.0)) {
-    //       tau2 = tau2_star;
-    //       tau = tau_star;
-    //       R_tau = R_tau_star;
-    //       zeta = zeta_star;
-    //       alpha = alpha_star;
-    //       tau2_accept += 1.0 / n_mcmc;
-    //     }
-    //   }
-    // }
-    //
-    // //
-    // // sample lambda_tau2
-    // //
-    //
-    // for (int j=0; j<(d-1); j++) {
-    //   lambda_tau2(j) = R::rgamma(1.0, 1.0 / (s2_tau2 + tau2(j)));
-    // }
-    //
-    // //
-    // // sample s2_tau2
-    // //
-    //
-    // if (pool_s2_tau2) {
-    //
-    //   double s2_tau2_star = s2_tau2 + R::rnorm(0, s2_tau2_tune);
-    //   if (s2_tau2_star > 0 && s2_tau2_star < A_s2) {
-    //     double mh1 = 0.0;
-    //     double mh2 = 0.0;
-    //     for (int j=0; j<(d-1); j++) {
-    //       mh1 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2_star, true);
-    //       mh2 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2, true);
-    //     }
-    //     double mh = exp(mh1-mh2);
-    //     if (mh > R::runif(0.0, 1.0)) {
-    //       s2_tau2 = s2_tau2_star;
-    //       s2_tau2_accept += 1.0 / n_mcmc;
-    //     }
-    //   }
-    // }
-    //
-
     //
     // save variables
     //
 
     if ((k + 1) % n_thin == 0) {
       int save_idx = (k+1)/n_thin-1;
+      mu_save.row(save_idx) = mu.t();
       alpha_save.subcube(span(save_idx), span(), span()) = alpha;
       beta_save.subcube(span(save_idx), span(), span()) = beta;
       // tau2_save.row(save_idx) = tau2.t();
       // lambda_tau2_save.row(save_idx) = lambda_tau2.t();
       // s2_tau2_save(save_idx) = s2_tau2;
     }
+    // end of MCMC iteration
   }
+  // end of MCMC fitting
+
 
   // print accpetance rates
   // set up output messages
   file_out.open(file_name, std::ios_base::app);
-  if (sample_beta) {
+  if (sample_mu) {
+    file_out << "Average acceptance rate for mu  = " << mean(mu_accept) <<
+      " for chain " << n_chain << "\n";
+  }
+
+    if (sample_beta) {
     file_out << "Average acceptance rate for beta  = " << mean(beta_accept) <<
       " for chain " << n_chain << "\n";
   }
@@ -530,6 +405,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // output results
 
   return Rcpp::List::create(
+    _["mu"] = mu_save,
     _["alpha"] = alpha_save,
     _["beta"] = beta_save);
   // _["tau2"] = tau2_save,

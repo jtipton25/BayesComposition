@@ -11,7 +11,7 @@
 #' @return \code{basis_cpp()} returns a double that is the evaluation of the \code{degree}^{th} polynomial B-spline algorithm at location \code{x} for the $i$^{th} knot index given \code{knots}
 #' @export
 basis_cpp <- function(x, degree, i, knots) {
-    .Call('BayesComposition_basis_cpp', PACKAGE = 'BayesComposition', x, degree, i, knots)
+    .Call('_BayesComposition_basis_cpp', PACKAGE = 'BayesComposition', x, degree, i, knots)
 }
 
 #' A function for implementing the Cox-de Boor algorithm for constructing B-splines
@@ -24,11 +24,11 @@ basis_cpp <- function(x, degree, i, knots) {
 #' @return \code{bs_cpp()} returns a double that is the evaluation of the \code{degree}^{th} polynomial B-spline algorithm at location \code{x} for the $i$^{th} knot index given \code{knots}
 #' @export
 bs_cpp <- function(x, df, interior_knots, degree, intercept, Boundary_knots) {
-    .Call('BayesComposition_bs_cpp', PACKAGE = 'BayesComposition', x, df, interior_knots, degree, intercept, Boundary_knots)
+    .Call('_BayesComposition_bs_cpp', PACKAGE = 'BayesComposition', x, df, interior_knots, degree, intercept, Boundary_knots)
 }
 
 colSums <- function(X) {
-    .Call('BayesComposition_colSums', PACKAGE = 'BayesComposition', X)
+    .Call('_BayesComposition_colSums', PACKAGE = 'BayesComposition', X)
 }
 
 #' A function for generating an evenly spaced sequence of numbers between 0 and 1
@@ -41,15 +41,15 @@ colSums <- function(X) {
 #' @return \code{basis_cpp()} returns a double that is the evaluation of the \code{degree}^{th} polynomial B-spline algorithm at location \code{x} for the $i$^{th} knot index given \code{knots}
 #' @export
 d_half_cauchy <- function(x, sigma, logd = TRUE) {
-    .Call('BayesComposition_d_half_cauchy', PACKAGE = 'BayesComposition', x, sigma, logd)
+    .Call('_BayesComposition_d_half_cauchy', PACKAGE = 'BayesComposition', x, sigma, logd)
 }
 
 dMVN <- function(y, mu, Sigma_chol, logd = TRUE) {
-    .Call('BayesComposition_dMVN', PACKAGE = 'BayesComposition', y, mu, Sigma_chol, logd)
+    .Call('_BayesComposition_dMVN', PACKAGE = 'BayesComposition', y, mu, Sigma_chol, logd)
 }
 
 dMVNChol <- function(y, mu, Sigma_chol, logd = TRUE) {
-    .Call('BayesComposition_dMVNChol', PACKAGE = 'BayesComposition', y, mu, Sigma_chol, logd)
+    .Call('_BayesComposition_dMVNChol', PACKAGE = 'BayesComposition', y, mu, Sigma_chol, logd)
 }
 
 #' A function for calculating the log-likelihood of a Dirichlet-Multinomial distribution over all observations
@@ -63,19 +63,19 @@ dMVNChol <- function(y, mu, Sigma_chol, logd = TRUE) {
 #' @return \code{LL_DM()} returns a double that is the evaluation of log-likelihood of the Dirichlet-multinomail distribution given the data and parameters
 #' @export
 LL_DM <- function(alpha, Y, N, d, count) {
-    .Call('BayesComposition_LL_DM', PACKAGE = 'BayesComposition', alpha, Y, N, d, count)
+    .Call('_BayesComposition_LL_DM', PACKAGE = 'BayesComposition', alpha, Y, N, d, count)
 }
 
 LL_DM_row <- function(alpha, Y, d, count) {
-    .Call('BayesComposition_LL_DM_row', PACKAGE = 'BayesComposition', alpha, Y, d, count)
+    .Call('_BayesComposition_LL_DM_row', PACKAGE = 'BayesComposition', alpha, Y, d, count)
 }
 
 logDet <- function(Sig) {
-    .Call('BayesComposition_logDet', PACKAGE = 'BayesComposition', Sig)
+    .Call('_BayesComposition_logDet', PACKAGE = 'BayesComposition', Sig)
 }
 
 logDetChol <- function(Sig_chol) {
-    .Call('BayesComposition_logDetChol', PACKAGE = 'BayesComposition', Sig_chol)
+    .Call('_BayesComposition_logDetChol', PACKAGE = 'BayesComposition', Sig_chol)
 }
 
 #' A function for calculating the logit function
@@ -85,7 +85,7 @@ logDetChol <- function(Sig_chol) {
 #' @return \code{logit()} returns the logit transform on \code{phi}
 #' @export
 logit <- function(phi) {
-    .Call('BayesComposition_logit', PACKAGE = 'BayesComposition', phi)
+    .Call('_BayesComposition_logit', PACKAGE = 'BayesComposition', phi)
 }
 
 #' A function for calculating the inverse logit function
@@ -95,7 +95,7 @@ logit <- function(phi) {
 #' @return \code{logit()} returns the inverse logit transform on \code{phi}
 #' @export
 expit <- function(phi) {
-    .Call('BayesComposition_expit', PACKAGE = 'BayesComposition', phi)
+    .Call('_BayesComposition_expit', PACKAGE = 'BayesComposition', phi)
 }
 
 #' A function for turning an \code{choose(d, 2)}-vector into a d by d matrix for use in constructing an upper-triangular Cholesky decomposition of a correlation matrix
@@ -106,7 +106,7 @@ expit <- function(phi) {
 #' @return \code{makeUpperLKJ()} returns an upper-triangular matrix
 #' @export
 makeUpperLKJ <- function(x, d) {
-    .Call('BayesComposition_makeUpperLKJ', PACKAGE = 'BayesComposition', x, d)
+    .Call('_BayesComposition_makeUpperLKJ', PACKAGE = 'BayesComposition', x, d)
 }
 
 #' A function for generating a d by d upper-triangular Cholesky decomposition of a correlation matrix using the helper function \code{makeUpperLKJ}
@@ -117,15 +117,15 @@ makeUpperLKJ <- function(x, d) {
 #' @return \code{makeRLKJ()} returns an upper-triangular Cholesky matrix \code{R} whose inner product \code{t(R)R} is a correlation matrix \code{Omega}. If \code{cholesky} = \code{TRUE}, \code{makeRLKJ} returns the correlation matrix \code{Omega}. If \code{jacobian} = \code{TRUE}, \code{makeRLKJ} calculates the jacobian of the transformation from a correlation matrix to a Cholesky factor. In general, the Jacobian is not needed.
 #' @export
 makeRLKJ <- function(xi, d, cholesky = FALSE, jacobian = FALSE) {
-    .Call('BayesComposition_makeRLKJ', PACKAGE = 'BayesComposition', xi, d, cholesky, jacobian)
+    .Call('_BayesComposition_makeRLKJ', PACKAGE = 'BayesComposition', xi, d, cholesky, jacobian)
 }
 
 makeCRPS <- function(estimate, truth, n_samps) {
-    .Call('BayesComposition_makeCRPS', PACKAGE = 'BayesComposition', estimate, truth, n_samps)
+    .Call('_BayesComposition_makeCRPS', PACKAGE = 'BayesComposition', estimate, truth, n_samps)
 }
 
 makeDistARMA <- function(coords1, coords2) {
-    .Call('BayesComposition_makeDistARMA', PACKAGE = 'BayesComposition', coords1, coords2)
+    .Call('_BayesComposition_makeDistARMA', PACKAGE = 'BayesComposition', coords1, coords2)
 }
 
 #' Makes a conditional autoregressive (CAR) precision matrix
@@ -135,111 +135,111 @@ makeDistARMA <- function(coords1, coords2) {
 #'
 #' @export
 makeQinv <- function(theta, t) {
-    .Call('BayesComposition_makeQinv', PACKAGE = 'BayesComposition', theta, t)
+    .Call('_BayesComposition_makeQinv', PACKAGE = 'BayesComposition', theta, t)
 }
 
 predictRcppDMMVGPAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
-    .Call('BayesComposition_predictRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMMVGPAdditive <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMMVGPAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
 }
 
 predictRcppDMMVGPMultiplicativeAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
-    .Call('BayesComposition_predictRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMMVGPMultiplicativeAdditive <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMMVGPMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
 }
 
 predictRcppDMMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
-    .Call('BayesComposition_predictRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMMVGPMultiplicative <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMMVGPMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-fit") {
-    .Call('BayesComposition_predictRcppDMMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMMVGP <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasisAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
-    .Call('BayesComposition_predictRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMBasisAdditive <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasisMultiplicativeAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
-    .Call('BayesComposition_predictRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMBasisMultiplicativeAdditive <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasisMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
-    .Call('BayesComposition_predictRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMBasisMultiplicative <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMBasisMultiplicative', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 predictRcppDMBasis <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
-    .Call('BayesComposition_predictRcppDMBasis', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppDMBasis', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppDMBasis <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
-    .Call('BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+    .Call('_BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
 mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
-    .Call('BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
+    .Call('_BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
 }
 
 predictRcppMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
-    .Call('BayesComposition_predictRcppMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 predictRcppMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
-    .Call('BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+    .Call('_BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppMVGP <- function(Y, X, params, n_chain = 1L, file_name = "sim-fit") {
-    .Call('BayesComposition_mcmcRcppMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
+    .Call('_BayesComposition_mcmcRcppMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
 }
 
 mvrnormArma <- function(n, mu, Sigma) {
-    .Call('BayesComposition_mvrnormArma', PACKAGE = 'BayesComposition', n, mu, Sigma)
+    .Call('_BayesComposition_mvrnormArma', PACKAGE = 'BayesComposition', n, mu, Sigma)
 }
 
 mvrnormArmaVec <- function(mu, Sigma) {
-    .Call('BayesComposition_mvrnormArmaVec', PACKAGE = 'BayesComposition', mu, Sigma)
+    .Call('_BayesComposition_mvrnormArmaVec', PACKAGE = 'BayesComposition', mu, Sigma)
 }
 
 mvrnormArmaChol <- function(n, mu, Sigma_chol) {
-    .Call('BayesComposition_mvrnormArmaChol', PACKAGE = 'BayesComposition', n, mu, Sigma_chol)
+    .Call('_BayesComposition_mvrnormArmaChol', PACKAGE = 'BayesComposition', n, mu, Sigma_chol)
 }
 
 mvrnormArmaVecChol <- function(mu, Sigma_chol) {
-    .Call('BayesComposition_mvrnormArmaVecChol', PACKAGE = 'BayesComposition', mu, Sigma_chol)
+    .Call('_BayesComposition_mvrnormArmaVecChol', PACKAGE = 'BayesComposition', mu, Sigma_chol)
 }
 
 rMVNArma <- function(A, b) {
-    .Call('BayesComposition_rMVNArma', PACKAGE = 'BayesComposition', A, b)
+    .Call('_BayesComposition_rMVNArma', PACKAGE = 'BayesComposition', A, b)
 }
 
 rMVNArmaScalar <- function(a, b) {
-    .Call('BayesComposition_rMVNArmaScalar', PACKAGE = 'BayesComposition', a, b)
+    .Call('_BayesComposition_rMVNArmaScalar', PACKAGE = 'BayesComposition', a, b)
 }
 
 #' A function for generating an evenly spaced sequence of numbers between 0 and 1
@@ -254,30 +254,30 @@ rMVNArmaScalar <- function(a, b) {
 NULL
 
 seq_lenC <- function(n) {
-    .Call('BayesComposition_seq_lenC', PACKAGE = 'BayesComposition', n)
+    .Call('_BayesComposition_seq_lenC', PACKAGE = 'BayesComposition', n)
 }
 
 updateTuning <- function(k, accept_tmp, tune) {
-    invisible(.Call('BayesComposition_updateTuning', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
+    invisible(.Call('_BayesComposition_updateTuning', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
 }
 
 updateTuningVec <- function(k, accept_tmp, tune) {
-    invisible(.Call('BayesComposition_updateTuningVec', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
+    invisible(.Call('_BayesComposition_updateTuningVec', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
 }
 
 updateTuningMat <- function(k, accept_tmp, tune) {
-    invisible(.Call('BayesComposition_updateTuningMat', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
+    invisible(.Call('_BayesComposition_updateTuningMat', PACKAGE = 'BayesComposition', k, accept_tmp, tune))
 }
 
 updateTuningMV <- function(k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol) {
-    invisible(.Call('BayesComposition_updateTuningMV', PACKAGE = 'BayesComposition', k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol))
+    invisible(.Call('_BayesComposition_updateTuningMV', PACKAGE = 'BayesComposition', k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol))
 }
 
 updateTuningMVMat <- function(k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol) {
-    invisible(.Call('BayesComposition_updateTuningMVMat', PACKAGE = 'BayesComposition', k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol))
+    invisible(.Call('_BayesComposition_updateTuningMVMat', PACKAGE = 'BayesComposition', k, accept_rate, lambda, batch_samples, Sigma_tune, Sigma_tune_chol))
 }
 
 # Register entry points for exported C++ functions
 methods::setLoadAction(function(ns) {
-    .Call('BayesComposition_RcppExport_registerCCallable', PACKAGE = 'BayesComposition')
+    .Call('_BayesComposition_RcppExport_registerCCallable', PACKAGE = 'BayesComposition')
 })
