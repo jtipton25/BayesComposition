@@ -412,7 +412,7 @@ ggplot(hole.df, aes(Observation, Covariate, color=Model)) +
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
                                       group=Model, color=Model, fill=Model), alpha=0.25) +
-  ylim(-10, 60)
+  ylim(65, -20)
 ```
 
 
@@ -426,7 +426,7 @@ ggplot(hole.df, aes(Observation, Covariate, color=Model)) +
                  geom = "ribbon", aes(Observation, Covariate,
                                       group=Model, color=Model, fill=Model), alpha=0.25) +
   facet_wrap(~Model, ncol=2) +
-  ylim(-10, 60)
+  ylim(65, -20)
 ```
 
 
@@ -589,7 +589,7 @@ X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ],
           
 caribou.df <- data.frame(
   Covariate=c(X_ci),
-  Observation=factor(rep((1:N_pred), each=5*n_samples*0.95)), 
+  Observation=rep((1:N_pred), each=5*n_samples*0.95), 
   Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF"), each=n_samples*0.95)
 )
 
@@ -600,7 +600,7 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   facet_wrap(~ Model, ncol=2) + 
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
 
-ggsave("caribou_recons.png")
+
 
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   #geom_violin(position="dodge") +
@@ -608,7 +608,8 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   labs(x="Observation", y="Unobserved Water Depth") +
   facet_wrap(~ Model, ncol=2) + 
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
-  scale_y_reverse()
+  scale_y_reverse(lim=c(65, -20))
+ggsave("caribou_recons.png")
 ```
 
 
@@ -616,12 +617,12 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
 ```{r}
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model), lwd=1.5) + 
     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
-                                      group=Model, color=Model, fill=Model), alpha=0.25) +
-  ylim(-10, 60)
+                                      group=Model, color=Model, fill=Model), alpha=0.125) +
+  scale_y_reverse(lim=c(65, -20))
 ```
 
 
@@ -634,7 +635,7 @@ ggplot(subset(caribou.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariat
     #              fun.ymax = function(z) {quantile(z, 0.975)},
     #              geom = "ribbon", aes(Observation, Covariate,
     #                                   group=Model, color=Model, fill=Model), alpha=0.25) +
-  ylim(-10, 60)
+  scale_y_reverse(lim=c(65, -20))
 ```
 
 
@@ -648,5 +649,5 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
                  geom = "ribbon", aes(Observation, Covariate,
                                       group=Model, color=Model, fill=Model), alpha=0.25) +
   facet_wrap(~Model, ncol=2) +
-  ylim(-10, 60)
+  scale_y_reverse(lim=c(65, -20))
 ```
