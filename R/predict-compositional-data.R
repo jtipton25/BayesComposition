@@ -78,9 +78,9 @@ predict_compositional_data <- function(
                                   params, samples,
                                   paste0(progress_directory, progress_file))
     } else if (params$function_type == "gaussian-process") {
-      if (params$multiplicative == FALSE) {
+      if (params$multiplicative_correlation == FALSE) {
         ## dirichlet-multinomial mvgp mcmc
-        if (params$additive == FALSE) {
+        if (params$additive_correlation == FALSE) {
           preds <- predictRcppDMMVGP(y_reconstruct, mu_X, s2_X, min_X, max_X,
                                      params, samples,
                                      paste0(progress_directory, progress_file))
@@ -90,7 +90,7 @@ predict_compositional_data <- function(
                                              paste0(progress_directory, progress_file))
         }
       } else {
-        if (params$addtitive == FALSE) {
+        if (params$additive_correlation == FALSE) {
           preds <- predictRcppDMMVGPMultiplicative(y_reconstruct, mu_X, s2_X, min_X, max_X,
                                                    params, samples,
                                                    paste0(progress_directory, progress_file))

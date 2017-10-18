@@ -13,7 +13,7 @@ library(knitr)
 library(ggplot2)
 library(gjam)
 library(rioja)
-# library(analogue)
+library(analogue)
 N <- 500
 N_pred <- 25
 d <- 4
@@ -325,25 +325,25 @@ pred_mu_MLRC <- predMLRC$fit[, 1]
 pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1])
 
 ## Modern analogue technique
-modMAT <- mat(y, X)
-predMAT <- predict(modMAT, y_recon, bootstrap=TRUE, n.boot=1000)
+modMAT <- MAT(y_prop, X, k=20, lean=FALSE)
+predMAT <- predict(modMAT, y_recon_prop, k=10, sse=TRUE, n.boot=1000)
 
-pred_mu_MAT <- apply(predMAT$predictions$model$predicted, 2, mean)
-pred_sd_MAT <- apply(predMAT$predictions$model$predicted, 2, sd)  
+pred_mu_MAT <- predMAT$fit.boot[, 2]
+pred_sd_MAT <- sqrt(predMAT$v1.boot[, 2])
 
-## GJAM model fit
-idx_hold <- (N+1):(N+N_pred)
-Xdf <- data.frame(x=c(X, rep(NA, N_pred)))
-Xdf$x[idx_hold] <- NA
-ydf <- data.frame(as.matrix(rbind(y, y_recon)))
-colnames(ydf) <- paste("y", 1:dim(y)[2], sep="")
-ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y)[2]),
-           PREDICTX=TRUE)
-## fit second order polynomial model
-out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
-
-pred_mu_GJAM  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
-pred_sd_GJAM  <- out$prediction$xpredSd[idx_hold, 2]
+# ## GJAM model fit
+# idx_hold <- (N+1):(N+N_pred)
+# Xdf <- data.frame(x=c(X, rep(NA, N_pred)))
+# Xdf$x[idx_hold] <- NA
+# ydf <- data.frame(as.matrix(rbind(y, y_recon)))
+# colnames(ydf) <- paste("y", 1:dim(y)[2], sep="")
+# ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y)[2]),
+#            PREDICTX=TRUE)
+# ## fit second order polynomial model
+# out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
+# 
+# pred_mu_GJAM  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
+# pred_sd_GJAM  <- out$prediction$xpredSd[idx_hold, 2]
 
 ## Random Forest
 library(randomForest)
@@ -352,8 +352,73 @@ test <- data.frame(y_recon)
 n_samples <- length(pred$X[, 1])
 rf <- randomForest(y ~ ., data = train, ntree=n_samples)
 preds_rf <- predict(rf, test, predict.all=TRUE)$individual
+```
 
 
+# Fit stan model
+# Fit model
+
+```{r stan-model}
+if (file.exists("~/BayesComposition/mvgp-test/fit-bummer-stan.RData")) {
+  ## Load MCMC run
+  load("~/BayesComposition/mvgp-test/fit-bummer-stan.RData")
+} else {
+  ## Long running MCMC 
+  library(rstan)
+  n_mcmc <- 500
+  rstan_options(auto_write = TRUE)
+  options(mc.cores = parallel::detectCores())
+  
+  dat=list(N=N, d=d, X=X_center, y=matrix(y, N, d))
+  
+  init_fun <- function() { list(
+    a=runif(d, 1, 10), 
+    mu=rnorm(d, 0, 1),
+    sigma2=runif(d, 1, 5), 
+    alpha=matrix(runif(N*d, 1, 5), N, d)) } 
+  
+  fit = stan(file="~/BayesComposition/bummer-dm.stan", iter=n_mcmc,
+             verbose=FALSE, data=dat, chains=4, init=init_fun,
+             control=list(adapt_delta=0.99, stepsize=0.01, max_treedepth=15))
+  save(fit, file="~/BayesComposition/mvgp-test/fit-bummer-stan.RData")
+}
+```
+
+### predict using stan model
+
+```{r, cache=TRUE}
+## extract samples
+e = rstan::extract(fit, permuted = TRUE)
+
+ddirmult <- function(yy, alpha) {
+  yy <- as.numeric(yy)
+  sum_y <- sum(yy)
+  return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) +
+                   apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum)))
+}
+n_iter <- dim(e$a)[1]
+n_grid <- 100
+N_pred <- dim(y_recon)[1]
+X_post <- matrix(0, n_iter, N_pred)
+X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+
+for (k in 1:n_iter) {
+  if (k %% 10 == 0) {
+    message("Iteration ", k, " out of ", n_iter)
+  }
+  for (ii in 1:n_grid) {
+    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+    }
+  for (i in 1:N_pred) {
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X)
+    pis <- pis / sum(pis)
+    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+  }
+}    
+
+## convert to original scale
+X_post <- X_post * sd_X + mu_X
 ```
 
 
@@ -376,13 +441,29 @@ X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ],
           apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
-          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(X_post[rep(1:nrow(X_post), times=4), ], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ] 
+          )
           # apply(preds_GJAM, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+
+X_diff_ci <- rbind(
+  apply(pred$X[, 2:N_pred] - pred$X[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_WA[, 2:N_pred] - preds_WA[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_MLRC[, 2:N_pred] - preds_MLRC[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_MAT[, 2:N_pred] - preds_MAT[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(t(preds_rf)[, 2:N_pred] - t(preds_rf)[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  X_post[, 2:N_pred] - X_post[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ]))
           
 hole.df <- data.frame(
   Covariate=c(X_ci),
-  Observation=factor(rep((1:N_pred), each=5*n_samples*0.95)), 
-  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF"), each=n_samples*0.95)
+  Observation=factor(rep((1:N_pred), each=6*n_samples*0.95)), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "BUMMER"), each=n_samples*0.95)
+)
+
+hole.diff.df <- data.frame(
+  Covariate=c(X_diff_ci),
+  Observation=factor(rep((1:(N_pred-1)), each=6*n_samples*0.95)), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "BUMMER"), each=n_samples*0.95)
 )
 
 ggplot(hole.df, aes(Observation, Covariate, color=Model)) +
@@ -411,6 +492,45 @@ ggplot(hole.df, aes(Observation, Covariate, color=Model)) +
 
 ```{r}
 ggplot(hole.df, aes(Observation, Covariate, color=Model)) +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  facet_wrap(~Model, ncol=2) +
+  ylim(65, -20)
+```
+
+## Differenced plots
+```{r}
+ggplot(hole.diff.df, aes(Observation, Covariate, color=Model)) +
+  geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
+
+```
+
+
+
+```{r}
+ggplot(hole.diff.df, aes(Observation, Covariate, color=Model)) +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  ylim(65, -20)
+```
+
+
+```{r}
+ggplot(hole.diff.df, aes(Observation, Covariate, color=Model)) +
   scale_x_discrete(breaks=seq(5, 25, 5)) + 
   labs(x="Observation", y="Unobserved Water Depth") +
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
@@ -528,20 +648,20 @@ pred_mu_MLRC <- predMLRC$fit[, 1]
 pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1])
 
 ## Modern analogue technique
-modMAT <- mat(y, X)
-predMAT <- predict(modMAT, y_recon, bootstrap=TRUE, n.boot=1000)
+modMAT <- MAT(y_prop, X, k=20, lean=FALSE)
+predMAT <- predict(modMAT, y_recon_prop, k=10, sse=TRUE, n.boot=1000)
 
-pred_mu_MAT <- apply(predMAT$predictions$model$predicted, 2, mean)
-pred_sd_MAT <- apply(predMAT$predictions$model$predicted, 2, sd)  
+pred_mu_MAT <- predMAT$fit.boot[, 2]
+pred_sd_MAT <- sqrt(predMAT$v1.boot[, 2])
 
-## GJAM model fit
-idx_hold <- (N+1):(N+N_pred)
-Xdf <- data.frame(x=c(X, rep(NA, N_pred)))
-Xdf$x[idx_hold] <- NA
-ydf <- data.frame(as.matrix(rbind(y, y_recon)))
-colnames(ydf) <- paste("y", 1:dim(y)[2], sep="")
-ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y)[2]),
-           PREDICTX=TRUE)
+# ## GJAM model fit
+# idx_hold <- (N+1):(N+N_pred)
+# Xdf <- data.frame(x=c(X, rep(NA, N_pred)))
+# Xdf$x[idx_hold] <- NA
+# ydf <- data.frame(as.matrix(rbind(y, y_recon)))
+# colnames(ydf) <- paste("y", 1:dim(y)[2], sep="")
+# ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y)[2]),
+#            PREDICTX=TRUE)
 ## fit second order polynomial model
 # out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
 # 
@@ -557,6 +677,46 @@ rf <- randomForest(y ~ ., data = train, ntree=n_samples)
 preds_rf <- predict(rf, test, predict.all=TRUE)$individual
 
 ```
+
+# Fit stan model
+
+### predict using stan model
+
+```{r, cache=TRUE}
+## extract samples
+e = rstan::extract(fit, permuted = TRUE)
+
+ddirmult <- function(yy, alpha) {
+  yy <- as.numeric(yy)
+  sum_y <- sum(yy)
+  return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) +
+                   apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum)))
+}
+n_iter <- dim(e$a)[1]
+n_grid <- 100
+N_pred <- dim(y_recon)[1]
+X_post <- matrix(0, n_iter, N_pred)
+X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+
+for (k in 1:n_iter) {
+  if (k %% 10 == 0) {
+    message("Iteration ", k, " out of ", n_iter)
+  }
+  for (ii in 1:n_grid) {
+    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+    }
+  for (i in 1:N_pred) {
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X)
+    pis <- pis / sum(pis)
+    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+  }
+}    
+
+## convert to original scale
+X_post <- X_post * sd_X + mu_X
+```
+
 
 
 ```{r}
@@ -577,14 +737,32 @@ X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ],
           apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
-          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(X_post[rep(1:nrow(X_post), times=4), ], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ] )
           # apply(preds_GJAM, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+
+X_diff_ci <- rbind(
+  apply(pred$X[, 2:N_pred] - pred$X[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_WA[, 2:N_pred] - preds_WA[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_MLRC[, 2:N_pred] - preds_MLRC[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(preds_MAT[, 2:N_pred] - preds_MAT[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(t(preds_rf)[, 2:N_pred] - t(preds_rf)[, 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+  apply(X_post[rep(1:nrow(X_post), times=4), 2:N_pred] - 
+          X_post[rep(1:nrow(X_post), times=4), 1:(N_pred-1)], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ] )
+          
           
 caribou.df <- data.frame(
   Covariate=c(X_ci),
-  Observation=rep((1:N_pred), each=5*n_samples*0.95), 
-  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF"), each=n_samples*0.95)
+  Observation=rep((1:N_pred), each=6*n_samples*0.95), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
 )
+
+caribou.diff.df <- data.frame(
+  Covariate=c(X_diff_ci),
+  Observation=rep((1:(N_pred-1)), each=6*n_samples*0.95), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
+)
+
 
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   geom_violin(position="dodge") +
@@ -602,7 +780,7 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   facet_wrap(~ Model, ncol=2) + 
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
   scale_y_reverse(lim=c(65, -20))
-ggsave("caribou_recons.png")
+# ggsave("caribou_recons.png")
 ```
 
 
@@ -621,7 +799,7 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
 
 
 ```{r}
-ggplot(subset(caribou.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariate, color=Model)) +
+ggplot(subset(caribou.df, Model %in% c("MVGP", "Bummer")), aes(Observation, Covariate, color=Model)) +
   labs(x="Observation", y="Unobserved Water Depth") +
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
     # stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
@@ -644,3 +822,98 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   facet_wrap(~Model, ncol=2) +
   scale_y_reverse(lim=c(65, -20))
 ```
+
+
+## Differenced reconstructions
+```{r}
+ggplot(caribou.diff.df, aes(Observation, Covariate, color=Model)) +
+  geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(5, 310, 10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
+```
+
+```{r}
+ggplot(caribou.diff.df, aes(Observation, Covariate, color=Model)) +
+  #geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  # facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "point", aes(Observation, Covariate, group=Model)) +
+  # scale_y_continuous(lim=c(30, -15))
+scale_y_reverse(lim=c(30, -15))
+# ggsave("caribou_recons.png")
+```
+
+
+
+```{r}
+ggplot(caribou.diff.df, aes(Observation, Covariate, color=Model)) +
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model), lwd=1.5) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.125) +
+  scale_y_reverse(lim=c(65, -20))
+```
+
+
+
+```{r}
+ggplot(subset(caribou.diff.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariate, color=Model)) +
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    # stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+    #              fun.ymax = function(z) {quantile(z, 0.975)},
+    #              geom = "ribbon", aes(Observation, Covariate,
+    #                                   group=Model, color=Model, fill=Model), alpha=0.25) +
+  scale_y_reverse(lim=c(65, -20))
+```
+
+
+
+```{r}
+ggplot(caribou.diff.df, aes(Observation, Covariate, color=Model)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  facet_wrap(~Model, ncol=2) +
+  scale_y_reverse(lim=c(65, -20))
+```
+
+
+### plotly
+```{r}
+library(dplyr)
+caribou.df.means <- caribou.df %>%
+  group_by(Observation, Model) %>%
+  summarize(Covariate = mean(Covariate, na.rm = TRUE))
+
+p <- ggplot(caribou.diff.means,
+       aes(Observation, Covariate, color=Model)) +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  geom_line()
+  scale_y_reverse(lim=c(30, -15))
+  
+p
+  
+library(plotly)
+pp <- ggplot(caribou.df.means, aes(Observation, Covariate, color=Model)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    # stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+    #              fun.ymax = function(z) {quantile(z, 0.975)},
+    #              geom = "ribbon", aes(Observation, Covariate,
+    #                                   group=Model, color=Model, fill=Model), alpha=0.25) +
+  facet_wrap(~Model, ncol=1) +
+  scale_y_reverse(lim=c(65, -20))
+ggplotly(pp)
+```
+
+```{r}

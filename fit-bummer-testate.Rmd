@@ -188,18 +188,51 @@ ggplot(testateFitData, aes(x=Wetness, y=Count, color=species, group=species)) +
 ## Composition sampling for predicting missing X
 
 ```{r}
+fileToLoad <- read.csv("~/testate/data/rawData/cariboucounts.csv")
+
+y_recon <- fileToLoad[,10:60]
+
+#source("~/Documents/connoR/testate/data/join-testate-caribou.R")
+
+N_recon_full <- sum(y_recon)
+
+idx1 <- colnames(y) %in% names(y_recon)
+# names(y_recon)[!idx1]
+# names(y_cal)[!idx2]
+
+## add in any species in calibation data not in reconstruction data
+for (i in colnames(y)[!idx1]){
+  y_recon[, i] <- rep(0, dim(y_recon)[1])
+}
+
+idx2 <- names(y_recon) %in% colnames(y)
+## remove species in reconstruction data not in calibration data
+for (i in names(y_recon)[!idx2]){
+  y_recon[, i] <- NULL
+}
+
+y_recon <- y_recon[, order(colnames(y_recon))]
+
+## check the names and orderings
+all.equal(colnames(y), colnames(y_recon))
+
+## Note: we are reducing the testate counts by about 25%...
+N_recon_reduced <- sum(y_recon)
+N_recon_full - N_recon_reduced
+```
+
+```{r}
 ddirmult <- function(yy, alpha) {
+  yy <- as.numeric(yy)
   sum_y <- sum(yy)
   return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) +
                    apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum)))
 }
-
-n_iter <- 3 * n_mcmc / 2
-n_grid <- 1000
-mu_X <- mean(X[1:N_obs])
-s_X <- sd(X[1:N_obs])
-X_post <- matrix(0, n_iter, N-N_obs)
-X_grid <- seq(from=min(X)-1.25*sd(X), to=max(X)+1.25*sd(X), length=n_grid)
+n_iter <- dim(e$a)[1]
+n_grid <- 100
+N_pred <- dim(y_recon)[1]
+X_post <- matrix(0, n_iter, N_pred)
+X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
 alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
 
 for (k in 1:n_iter) {
@@ -207,52 +240,43 @@ for (k in 1:n_iter) {
     message("Iteration ", k, " out of ", n_iter)
   }
   for (ii in 1:n_grid) {
-    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - pow(e$mu[k, ] - X_grid[ii], 2) / e$sigma2[k, ])
+    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
     }
-  for (i in (N_obs+1):N) {
-    pis <- ddirmult(y[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X)
+  for (i in 1:N_pred) {
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X)
     pis <- pis / sum(pis)
-    X_post[k, i-N_obs] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
   }
 }    
+
+## convert to original scale
+X_post <- X_post * sd_X + mu_X
 ```
 
 
 ```{r}
 layout(matrix(1:9, 3, 3))
 hist(X_post[, 1])
-abline(v=X[N_obs + 1], col='red')
 hist(X_post[, 2])
-abline(v=X[N_obs + 2], col='red')
 hist(X_post[, 3])
-abline(v=X[N_obs + 3], col='red')
 hist(X_post[, 4])
-abline(v=X[N_obs + 4], col='red')
 hist(X_post[, 5])
-abline(v=X[N_obs + 5], col='red')
 hist(X_post[, 6])
-abline(v=X[N_obs + 6], col='red')
 hist(X_post[, 7])
-abline(v=X[N_obs + 7], col='red')
 hist(X_post[, 8])
-abline(v=X[N_obs + 8], col='red')
 hist(X_post[, 9])
-abline(v=X[N_obs + 9], col='red')
 ```
 
 
 ```{r}
 layout(matrix(1:3, 3, 1))
-idx <- order(X)
 
 layout(matrix(1, 1, 1))
-matplot(apply(X_post, 2, mean), type='l',
-        ylim=c(-5, 5))
+matplot(apply(X_post, 2, mean), type='l')
 matplot(apply(X_post, 2, quantile, prob = 0.025), 
         type='l', add=TRUE, lty=2)
 matplot(apply(X_post, 2, quantile, prob = 0.975), 
         type='l', add=TRUE, lty=2)
-lines(X[(N_obs+1):N], col = 'red')
 ```
 
 
