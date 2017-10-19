@@ -5,14 +5,6 @@ date: "10/17/2017"
 output: html_document
 ---
 
----
-title: "Full Testate Caribou and Hole Bog Reconstructions"
-author: "John Tipton"
-date: "6/8/2017"
-output: html_document
----
-
-
 ```{r, warning=FALSE, message=FALSE}
 set.seed(11)
 library(BayesComposition)
@@ -112,7 +104,7 @@ params <- list(n_adapt=5000, n_mcmc=10000, n_thin=20,
                multiplicative_correlation=FALSE, 
                message=100, n_chains=4, n_cores=4, df=8)
 
-save_directory <- "./mvgp-test/"
+save_directory <- "~/Google Drive/mvgp-test/"
 save_file <- paste0("mvgp-dm-testate-bspline-", 1:10, ".RData")
 progress_directory <- "./mvgp-test/"
 progress_file <- paste0("mvgp-dm-testate-bspline-", 1:10, ".txt")
@@ -120,16 +112,11 @@ progress_file <- paste0("mvgp-dm-testate-bspline-", 1:10, ".txt")
 
 
 ```{r}
-X_pred <- c()
+
 ## Fit cv using B-spline model
 for (i in 1:10) {
   if (file.exists(paste0(save_directory, save_file[i]))) {
-    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
-    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
-    X_train <- X[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
-    X_test <- X[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
-    ## check if MCMC output exists
-    load(paste0(save_directory, save_file[i]))
+    ## do nothing
   } else {
     y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
     y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
@@ -155,31 +142,36 @@ for (i in 1:10) {
     dev.off()
 
   }
-  samples <- extract_compositional_samples(out)
-  pred <- predict_compositional_data(y_test, X_train, 
-                                       params=params, samples=samples, 
-                                       progress_directory=progress_directory,
-                                       progress_file = "DM-predict.txt")
-  X_pred <- cbind(X_pred, pred$X)
 }
 ```
 
+## MVGP predictions
 
+```{r}
 
-
-
-<!-- ```{r}  -->
-<!-- ## sort the data to be in the same order as the predictions -->
-<!-- plot(apply(X_pred, 2, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed",  -->
-<!--      main="Cross-validation of MVGP model") -->
-<!-- ## Notice most of the confidence intervals cover the red linear regression line  -->
-<!-- ## i.e. the 95% CI is close to 95% -->
-<!-- segments(x0=X[sample_idx], y0=apply(X_pred, 2, quantile, prob=0.025),  -->
-<!--          x1=X[sample_idx], y1=apply(X_pred, 2, quantile, prob=0.975),  -->
-<!--          col=adjustcolor("black", alpha.f=0.25)) -->
-<!-- abline(lm(apply(X_pred, 2, mean) ~ X[sample_idx]), col="red") -->
-<!-- summary(lm(apply(X_pred, 2, mean) ~ X[sample_idx])) -->
-<!-- ``` -->
+if (file.exists(paste0(save_directory, "mvgp-predictions.RData"))) {
+  ## load predictions
+  load(file = paste0(save_directory, "mvgp-predictions.RData"))
+} else {
+  X_pred <- c()
+  for (i in 1:10) {
+    ## do nothing
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## check if MCMC output exists
+    load(paste0(save_directory, save_file[i]))
+    samples <- extract_compositional_samples(out)
+    pred <- predict_compositional_data(y_test, X_train, 
+                                       params=params, samples=samples, 
+                                       progress_directory=progress_directory,
+                                       progress_file = "DM-predict.txt")
+    X_pred <- cbind(X_pred, pred$X)
+  }
+  save(X_pred, file=paste0(save_directory, "mvgp-predictions.RData"))
+}
+```
 
 
 
@@ -257,6 +249,119 @@ if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
 ```
   
   
+  
+  # Fit stan model
+# Fit model
+
+```{r stan-model}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+for (i in 1:10) {
+  if (file.exists(paste0(save_directory, "bummer-cv-", i, ".RData"))) {
+    ## Load MCMC run
+    # load(paste0(save_directory, "bummer-cv-", i, ".RData"))
+  } else {
+    message("Fitting other models for fold ", i)
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X_center[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X_center[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## Long running MCMC
+    library(rstan)
+    n_mcmc <- 500
+    rstan_options(auto_write = TRUE)
+    options(mc.cores = parallel::detectCores())
+    
+    dat=list(N=length(X_train), d=d, X=X_train, 
+             y=matrix(y_train, length(X_train), d))
+    
+    init_fun <- function() { list(
+      a=runif(d, 1, 10),
+      mu=rnorm(d, 0, 1),
+      sigma2=runif(d, 1, 5),
+      alpha=matrix(runif(N*d, 1, 5), N, d)) }
+    
+    fit = stan(file="~/BayesComposition/bummer-dm.stan", iter=n_mcmc,
+               verbose=FALSE, data=dat, chains=4, init=init_fun,
+               control=list(adapt_delta=0.99, stepsize=0.01, max_treedepth=15))
+    save(fit, file=paste0(save_directory, "bummer-cv-", i, ".RData"))
+  }
+}
+```
+
+### predict using stan model
+
+```{r}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+X_pred_bummer <- c()
+if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
+  load(file=paste0(save_directory, "bummer-cv-predictions.RData"))
+} else {
+  for (i in 1:10) {
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X_center[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X_center[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## load the data
+    load(paste0(save_directory, "bummer-cv-", i, ".RData"))
+    ## extract samples
+    e = rstan::extract(fit, permuted = TRUE)
+    
+    ddirmult <- function(yy, alpha, log=TRUE) {
+      yy <- as.numeric(yy)
+      sum_y <- sum(yy)
+      if (log) {
+        return(lgamma(apply(alpha, 1, sum)) -
+                 lgamma(sum_y + apply(alpha, 1, sum)) +
+                 apply(lgamma(t(yy + t(alpha))), 1, sum) - 
+                 apply(lgamma(alpha), 1, sum))
+      } else {
+        return(exp(lgamma(apply(alpha, 1, sum)) - 
+                     lgamma(sum_y + apply(alpha, 1, sum)) +
+                     apply(lgamma(t(yy + t(alpha))), 1, sum) - 
+                     apply(lgamma(alpha), 1, sum)))      
+      }
+    }
+    n_iter <- dim(e$a)[1]
+    n_grid <- 100
+    N_pred <- dim(y_test)[1]
+    XX_post <- matrix(0, n_iter, N_pred)
+    X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), 
+                  to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+    alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+    
+    for (k in 1:n_iter) {
+      if (k %% 50 == 0) {
+        message("Iteration ", k, " out of ", n_iter)
+      }
+      for (ii in 1:n_grid) {
+        alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+      }
+      for (ii in 1:N_pred) {
+        tmp <- ddirmult(y_test[ii, ], alpha_pred[k, , ], log=TRUE)
+        ## correct for numeric overflow
+        ## doesn't change anything because we divide by the correction factor
+        pis <- exp(tmp - max(tmp)) * dnorm(X_grid, 0, 1)
+        pis <- pis / sum(pis)
+        XX_post[k, ii] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+      }
+    }
+    
+    ## convert to original scale
+    XX_post <- XX_post * sd_X + mu_X
+    X_pred_bummer <- cbind(X_pred_bummer, XX_post)
+  }
+  save(X_pred_bummer, file=paste0(save_directory, "bummer-cv-predictions.RData"))
+}
+
+```
+
+
+## Plot results
+
 ```{r} 
 layout(matrix(1:6, 3, 2))
 ## sort the data to be in the same order as the predictions
@@ -314,88 +419,28 @@ segments(x0=X[sample_idx], y0=apply(preds_rf, 1, quantile, prob=0.025),
 abline(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]), col="red")
 summary(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]))
 
+## sort the data to be in the same order as the predictions
+plot(apply(X_pred_bummer, 2, mean) ~ X[sample_idx], 
+     ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of Bummer model")
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is close to 95%
+segments(x0=X[sample_idx], y0=apply(X_pred_bummer, 2, quantile, prob=0.025), 
+         x1=X[sample_idx], y1=apply(X_pred_bummer, 2, quantile, prob=0.975), 
+         col=adjustcolor("black", alpha.f=0.25))
+abline(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]), col="red")
+summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
 ```
 
 
   
 
-# Fit stan model
-# Fit model
 
-```{r stan-model}
-mu_X <- mean(X)
-sd_X <- sd(X)
-X_center <- (X-mu_X) / sd_X
-for (i in 1:10) {
-  if (file.exists(paste0(save_directory, "bummer-cv-", i, ".RData"))) {
-    ## Load MCMC run
-    # load(paste0(save_directory, "bummer-cv-", i, ".RData"))
-  } else {
-    message("Fitting other models for fold ", i)
-    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
-    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
-    X_train <- X_center[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
-    X_test <- X_center[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
-    ## Long running MCMC
-    library(rstan)
-    n_mcmc <- 500
-    rstan_options(auto_write = TRUE)
-    options(mc.cores = parallel::detectCores())
-    
-    dat=list(N=length(X_train), d=d, X=X_train, 
-             y=matrix(y_train, length(X_train), d))
-    
-    init_fun <- function() { list(
-      a=runif(d, 1, 10),
-      mu=rnorm(d, 0, 1),
-      sigma2=runif(d, 1, 5),
-      alpha=matrix(runif(N*d, 1, 5), N, d)) }
-    
-    fit = stan(file="~/BayesComposition/bummer-dm.stan", iter=n_mcmc,
-               verbose=FALSE, data=dat, chains=4, init=init_fun,
-               control=list(adapt_delta=0.99, stepsize=0.01, max_treedepth=15))
-    save(fit, file=paste0(save_directory, "bummer-cv-", i, ".RData"))
-  }
-}
+
+
+```{r}
+plot(apply(X_pred_bummer, 2, mean), X[sample_idx])
 ```
-
-<!-- ### predict using stan model -->
-
-<!-- ```{r} -->
-<!-- ## extract samples -->
-<!-- e = rstan::extract(fit, permuted = TRUE) -->
-
-<!-- ddirmult <- function(yy, alpha) { -->
-<!--   yy <- as.numeric(yy) -->
-<!--   sum_y <- sum(yy) -->
-<!--   return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) + -->
-<!--                    apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum))) -->
-<!-- } -->
-<!-- n_iter <- dim(e$a)[1] -->
-<!-- n_grid <- 100 -->
-<!-- N_pred <- dim(y_recon)[1] -->
-<!-- X_post <- matrix(0, n_iter, N_pred) -->
-<!-- X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid) -->
-<!-- alpha_pred <- array(0, dim=c(n_iter, n_grid, d)) -->
-
-<!-- for (k in 1:n_iter) { -->
-<!--   if (k %% 10 == 0) { -->
-<!--     message("Iteration ", k, " out of ", n_iter) -->
-<!--   } -->
-<!--   for (ii in 1:n_grid) { -->
-<!--     alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]) -->
-<!--     } -->
-<!--   for (i in 1:N_pred) { -->
-<!--     pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X) -->
-<!--     pis <- pis / sum(pis) -->
-<!--     X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis) -->
-<!--   } -->
-<!-- } -->
-
-<!-- ## convert to original scale -->
-<!-- X_post <- X_post * sd_X + mu_X -->
-<!-- ``` -->
-
 
 
 
