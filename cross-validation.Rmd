@@ -17,6 +17,7 @@ N <- 500
 N_pred <- 25
 d <- 4
 n_knots <- 30
+
 ```
 
 # Load Testate Data and R code - Full Data
@@ -83,7 +84,12 @@ ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
 
 ```{r}
 ## 10 fold cv
-sample_idx <- sample(1:N, replace=FALSE)
+if (file.exists("~/Google Drive/mvgp-test/cv-idx.RData")) {
+  load("~/Google Drive/mvgp-test/cv-idx.RData")
+} else {
+  sample_idx <- sample(1:N, replace=FALSE)
+  save(sample_idx, file="~/Google Drive/mvgp-test/cv-idx.RData")
+}
 step_cv <- c(ceiling(seq(1, N, by = length(sample_idx)/10)), N+1)
 ```
 
@@ -356,7 +362,6 @@ if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
   }
   save(X_pred_bummer, file=paste0(save_directory, "bummer-cv-predictions.RData"))
 }
-
 ```
 
 
@@ -366,69 +371,75 @@ if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
 layout(matrix(1:6, 3, 2))
 ## sort the data to be in the same order as the predictions
 plot(apply(X_pred, 2, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of MVGP model")
+     main="Cross-validation of MVGP model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is close to 95%
 segments(x0=X[sample_idx], y0=apply(X_pred, 2, quantile, prob=0.025), 
          x1=X[sample_idx], y1=apply(X_pred, 2, quantile, prob=0.975), 
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(apply(X_pred, 2, mean) ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(apply(X_pred, 2, mean) ~ X[sample_idx]), col="blue")
 summary(lm(apply(X_pred, 2, mean) ~ X[sample_idx]))
 
 ## sort the data to be in the same order as the predictions
 plot(pred_mu_WA ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of WA model")
+     main="Cross-validation of WA model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is not close to 95%
 segments(x0=X[sample_idx], y0=pred_mu_WA - 2 * pred_sd_WA,
          x1=X[sample_idx], y1=pred_mu_WA + 2 * pred_sd_WA,
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(pred_mu_WA ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_WA ~ X[sample_idx]), col="blue")
 summary(lm(pred_mu_WA ~ X[sample_idx]))
 
 ## sort the data to be in the same order as the predictions
 plot(pred_mu_MLRC ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of MLRC model")
+     main="Cross-validation of MLRC model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is not close to 95%
 segments(x0=X[sample_idx], y0=pred_mu_MLRC - 2 * pred_sd_MLRC,
          x1=X[sample_idx], y1=pred_mu_MLRC + 2 * pred_sd_MLRC,
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(pred_mu_MLRC ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_MLRC ~ X[sample_idx]), col="blue")
 summary(lm(pred_mu_MLRC ~ X[sample_idx]))
 
 ## sort the data to be in the same order as the predictions
 plot(pred_mu_MAT ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of MAT model")
+     main="Cross-validation of MAT model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is not close to 95%
 segments(x0=X[sample_idx], y0=pred_mu_MAT - 2 * pred_sd_MAT,
          x1=X[sample_idx], y1=pred_mu_MAT + 2 * pred_sd_MAT,
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(pred_mu_MAT ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_MAT ~ X[sample_idx]), col="blue")
 summary(lm(pred_mu_MAT ~ X[sample_idx]))
 
 ## sort the data to be in the same order as the predictions
 plot(apply(preds_rf, 1, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of RF model")
+     main="Cross-validation of RF model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is close to 95%
 segments(x0=X[sample_idx], y0=apply(preds_rf, 1, quantile, prob=0.025), 
          x1=X[sample_idx], y1=apply(preds_rf, 1, quantile, prob=0.975), 
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]), col="blue")
 summary(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]))
 
 ## sort the data to be in the same order as the predictions
 plot(apply(X_pred_bummer, 2, mean) ~ X[sample_idx], 
      ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of Bummer model")
+     main="Cross-validation of Bummer model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is close to 95%
 segments(x0=X[sample_idx], y0=apply(X_pred_bummer, 2, quantile, prob=0.025), 
          x1=X[sample_idx], y1=apply(X_pred_bummer, 2, quantile, prob=0.975), 
          col=adjustcolor("black", alpha.f=0.25))
-abline(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]), col="red")
+abline(a=0, b=1, col="red")
+abline(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]), col="blue")
 summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
 ```
 
@@ -438,9 +449,7 @@ summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
 
 
 
-```{r}
-plot(apply(X_pred_bummer, 2, mean), X[sample_idx])
-```
+
 
 
 
