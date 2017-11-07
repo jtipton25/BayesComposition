@@ -917,3 +917,23 @@ ggplotly(pp)
 ```
 
 ```{r}
+
+coefWA <- coefficients(modWA)
+
+waFitData <- data.frame(species=row.names(coefWA), coefs=coefWA)
+
+g2_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+   geom_point(alpha=0.20) + theme(legend.position="none") +
+   ggtitle("MVGP vs. depth by species") + 
+   #geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25) + 
+   geom_line(aes(x=depth, y=alpha), fitPlotData, lwd=0.5, col="black") + 
+   geom_vline(aes(xintercept=Optima), data=waFitData) + 
+   facet_wrap( ~ species, ncol = 4)
+ 
+g2_post
+
+ggsave("MVGPvWA.pdf")
+
+
+```
+
