@@ -1,0 +1,527 @@
+---
+title: "cross-validation"
+author: "John Tipton"
+date: "10/17/2017"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+set.seed(11)
+library(BayesComposition)
+library(knitr)
+library(ggplot2)
+library(gjam)
+library(rioja)
+library(analogue)
+N <- 500
+N_pred <- 25
+d <- 4
+n_knots <- 30
+
+```
+
+# Load Testate Data and R code - Full Data
+```{r readData, echo=FALSE, include=FALSE, eval=TRUE, results='hide'}
+#raw_data <- read.csv(file="~/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
+ #                    skip=6)
+
+raw_data <- read.csv(file="~/Documents/connoR/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
+                     skip=6)
+y <- raw_data[, 12:85]
+X <- raw_data$WTD..cm.
+
+## join species
+
+#source("~/testate/data/join-testate.R")
+source("~/Documents/connoR/testate/data/join-testate.R")
+
+## remove zeros
+no_obs <- which(apply(y, 2, sum) == 0)
+
+## down to 47 species
+y <- y[, -no_obs]
+
+## Subset rare species
+sum(y)
+y <- y[, apply(y, 2, sum) > 500]
+# y <- y[, colSums(y) > 100]
+
+## remove the censored observations with X == 50
+y <- y[- which(X == 50), ]
+X <- X[- which(X == 50)]
+
+
+mean_X <- mean(X)
+sd_X <- sd(X)
+N <- nrow(y)
+
+N <- dim(y)[1]
+d <- dim(y)[2]
+
+## transform the data to percentages for use in transfer function models
+y_prop <- y
+for (i in 1:N) {
+  y_prop[i, ] <- y_prop[i, ] / sum(y_prop[i, ])
+}
+```
+
+
+```{r}
+testatePlotData <- data.frame(species=as.factor(rep(colnames(y), each=N)),
+                              Count=c(as.matrix(y_prop)), 
+                              Wetness=rep(X, times=dim(y)[2]))
+
+ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
+  geom_point(alpha=0.25) +
+  # geom_line(stat="smooth", method="loess", aes(y=Count, x=Wetness),
+  #           alpha=0.5, lwd=1.25) +
+  theme(legend.position="none") + ggtitle("Testate Composition vs. Water Table Depth") + 
+  labs(x="Water Table Depth", y="Composition") + 
+  theme(plot.title=element_text(size=24, face="bold", hjust=0.5)) + 
+  theme(axis.text.x = element_text(size = 22), 
+        axis.text.y = element_text(size = 22),
+        axis.title.x = element_text(size = 22), 
+        axis.title.y = element_text(size = 22))
+```
+
+
+```{r}
+## 10 fold cv
+if (file.exists("~/Google Drive/mvgp-test/cv-idx.RData")) {
+  #load("~/Google Drive/mvgp-test/cv-idx.RData")
+  load("./mvgp-test/cv-idx.RData")
+} else {
+  sample_idx <- sample(1:N, replace=FALSE)
+  save(sample_idx, file="~/Google Drive/mvgp-test/cv-idx.RData")
+}
+step_cv <- c(ceiling(seq(1, N, by = length(sample_idx)/10)), N+1)
+```
+
+
+
+```{r}
+y <- as.matrix(y)
+mean_X <- mean(X)
+sd_X <- sd(X)
+# X <- (X - mean_X) / sd_X
+X_knots <- seq(min(X, na.rm=TRUE)-1.25*sd(X, na.rm=TRUE), 
+               max(X, na.rm=TRUE)+1.25*sd(X, na.rm=TRUE), length=n_knots)
+
+params <- list(n_adapt=5000, n_mcmc=10000, n_thin=20, 
+               likelihood="dirichlet-multinomial",
+               function_type = "basis",
+               additive_correlation=FALSE, 
+               multiplicative_correlation=FALSE, 
+               message=100, n_chains=4, n_cores=4, df=8)
+
+#save_directory <- "~/Google Drive/mvgp-test/"
+save_directory <- "./mvgp-test/"
+save_file <- paste0("mvgp-dm-testate-bspline-", 1:10, ".RData")
+progress_directory <- "./mvgp-test/"
+progress_file <- paste0("mvgp-dm-testate-bspline-", 1:10, ".txt")
+```
+
+
+```{r}
+
+## Fit cv using B-spline model
+for (i in 1:10) {
+  if (file.exists(paste0(save_directory, save_file[i]))) {
+    ## do nothing
+  } else {
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+
+        ## potentially long running MCMC code
+    out <- fit_compositional_data(y=y_train, X=X_train, params=params, 
+                                  progress_directory = progress_directory,
+                                  progress_file = progress_file[i], 
+                                  save_directory = save_directory,
+                                  save_file = save_file[i])
+    
+    
+    Rhat <- make_gelman_rubin(out)
+    png(file=paste0("~/BayesComposition/mvgp-test/diagnostics/Rhat-cv-fold-", i, ".png"), 
+        width=6, height=6, units="in", res=400)
+    layout(matrix(1:3, 3, 1))
+    # hist(Rhat[grepl("alpha=", names(Rhat))], main = "Rhat for alpha")
+    hist(Rhat[grepl("mu", names(Rhat))], main = "Rhat for mu")
+    hist(Rhat[grepl("beta", names(Rhat))], main = "Rhat for beta")
+    hist(Rhat, main="All parameters")
+    dev.off()
+
+  }
+}
+```
+
+## MVGP predictions
+
+```{r}
+
+if (file.exists(paste0(save_directory, "mvgp-predictions.RData"))) {
+  ## load predictions
+  load(file = paste0(save_directory, "mvgp-predictions.RData"))
+} else {
+  X_pred <- c()
+  for (i in 1:10) {
+    ## do nothing
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## check if MCMC output exists
+    load(paste0(save_directory, save_file[i]))
+    samples <- extract_compositional_samples(out)
+    pred <- predict_compositional_data(y_test, X_train, 
+                                       params=params, samples=samples, 
+                                       progress_directory=progress_directory,
+                                       progress_file = "DM-predict.txt")
+    X_pred <- cbind(X_pred, pred$X)
+  }
+  save(X_pred, file=paste0(save_directory, "mvgp-predictions.RData"))
+}
+```
+
+
+
+
+```{r, message=FALSE, include=FALSE}
+y_prop <- y
+for (i in 1:N) {
+  y_prop[i, ] <- y_prop[i, ] / sum(y_prop[i, ])
+}
+
+if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
+  load(file=paste0(save_directory, "other-models-cv.RData"))
+} else {
+  pred_mu_WA <- c()
+  pred_sd_WA <- c()
+  pred_mu_MLRC <- c()
+  pred_sd_MLRC <- c()
+  pred_mu_MAT <- c()
+  pred_sd_MAT <- c()
+  preds_rf <- c()
+  for (i in 1:10) {
+    message("Fitting other models for fold ", i)
+    y_prop_train <- y_prop[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_prop_test <- y_prop[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    
+    ## WA reconstruction - subset to deal with all zero occurrence species
+    zeros_idx <- which(colSums(y_prop_train) == 0)
+    if (length(zeros_idx) > 0) {
+      modWA <- rioja::WA(y_prop_train[, - zeros_idx], X_train)
+      predWA <- predict(modWA, y_prop_test[, - zeros_idx], sse=TRUE, nboot=1000)
+    } else {
+      ## no data to subset
+      modWA <- rioja::WA(y_prop_train, X_train)
+      predWA <- predict(modWA, y_prop_test, sse=TRUE, nboot=1000)      
+    }
+    
+    pred_mu_WA <- c(pred_mu_WA, predWA$fit[, 1])
+    pred_sd_WA <- c(pred_sd_WA, sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))
+    
+    ## MLRC reconstruction - subset to deal with all zero occurrence species
+    zeros_idx <- which(colSums(y_prop_train) == 0)
+    if (length(zeros_idx) > 0) {
+      modMLRC <- rioja::MLRC(y_prop_train[, - zeros_idx], X_train)
+      predMLRC <- predict(modMLRC, y_prop_test[, - zeros_idx],
+                          sse=TRUE, nboot=1000)
+    } else {
+      modMLRC <- rioja::MLRC(y_prop_train, X_train)
+      predMLRC <- predict(modMLRC, y_prop_test, sse=TRUE, nboot=1000)
+    }
+
+    pred_mu_MLRC <- c(pred_mu_MLRC, predMLRC$fit[, 1])
+    pred_sd_MLRC <- c(pred_sd_MLRC, sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2))
+    
+    ## Modern analogue technique
+    modMAT <- MAT(y_prop_train, X_train, k=20, lean=FALSE)
+    predMAT <- predict(modMAT, y_prop_test, k=10, sse=TRUE, n.boot=1000)
+    
+    pred_mu_MAT <- c(pred_mu_MAT, predMAT$fit.boot[, 2])
+    pred_sd_MAT <- c(pred_sd_MAT, sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]))
+    
+    ## Random Forest
+    library(randomForest)
+    train <- data.frame(y=X_train, as.matrix(y_prop_train))
+    test <- data.frame(as.matrix(y_prop_test))
+    n_samples <- 2000
+    rf <- randomForest(y ~ ., data = train, ntree=n_samples)
+    preds_rf <- rbind(preds_rf, predict(rf, test, predict.all=TRUE)$individual)
+  }
+  save(pred_mu_WA, pred_sd_WA, pred_mu_MLRC, pred_sd_MLRC, 
+       pred_mu_MAT, pred_sd_MAT, preds_rf, 
+       file= paste0(save_directory, "other-models-cv.RData"))
+}
+```
+  
+  
+  
+  # Fit stan model
+# Fit model
+
+```{r stan-model}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+for (i in 1:10) {
+  if (file.exists(paste0(save_directory, "bummer-cv-", i, ".RData"))) {
+    ## Load MCMC run
+    # load(paste0(save_directory, "bummer-cv-", i, ".RData"))
+  } else {
+    message("Fitting other models for fold ", i)
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X_center[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X_center[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## Long running MCMC
+    library(rstan)
+    n_mcmc <- 500
+    rstan_options(auto_write = TRUE)
+    options(mc.cores = parallel::detectCores())
+    
+    dat=list(N=length(X_train), d=d, X=X_train, 
+             y=matrix(y_train, length(X_train), d))
+    
+    init_fun <- function() { list(
+      a=runif(d, 1, 10),
+      mu=rnorm(d, 0, 1),
+      sigma2=runif(d, 1, 5),
+      alpha=matrix(runif(N*d, 1, 5), N, d)) }
+    
+    fit = stan(file="~/BayesComposition/bummer-dm.stan", iter=n_mcmc,
+               verbose=FALSE, data=dat, chains=4, init=init_fun,
+               control=list(adapt_delta=0.99, stepsize=0.01, max_treedepth=15))
+    save(fit, file=paste0(save_directory, "bummer-cv-", i, ".RData"))
+  }
+}
+```
+
+### predict using stan model
+
+```{r}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+X_pred_bummer <- c()
+if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
+  load(file=paste0(save_directory, "bummer-cv-predictions.RData"))
+} else {
+  for (i in 1:10) {
+    y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    y_test <- y[sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
+    X_train <- X_center[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    X_test <- X_center[sample_idx[step_cv[i]:(step_cv[i+1] - 1)]]
+    ## load the data
+    load(paste0(save_directory, "bummer-cv-", i, ".RData"))
+    ## extract samples
+    e = rstan::extract(fit, permuted = TRUE)
+    
+    ddirmult <- function(yy, alpha, log=TRUE) {
+      yy <- as.numeric(yy)
+      sum_y <- sum(yy)
+      if (log) {
+        return(lgamma(apply(alpha, 1, sum)) -
+                 lgamma(sum_y + apply(alpha, 1, sum)) +
+                 apply(lgamma(t(yy + t(alpha))), 1, sum) - 
+                 apply(lgamma(alpha), 1, sum))
+      } else {
+        return(exp(lgamma(apply(alpha, 1, sum)) - 
+                     lgamma(sum_y + apply(alpha, 1, sum)) +
+                     apply(lgamma(t(yy + t(alpha))), 1, sum) - 
+                     apply(lgamma(alpha), 1, sum)))      
+      }
+    }
+    n_iter <- dim(e$a)[1]
+    n_grid <- 100
+    N_pred <- dim(y_test)[1]
+    XX_post <- matrix(0, n_iter, N_pred)
+    X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), 
+                  to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+    alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+    
+    for (k in 1:n_iter) {
+      if (k %% 50 == 0) {
+        message("Iteration ", k, " out of ", n_iter)
+      }
+      for (ii in 1:n_grid) {
+        alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+      }
+      for (ii in 1:N_pred) {
+        tmp <- ddirmult(y_test[ii, ], alpha_pred[k, , ], log=TRUE)
+        ## correct for numeric overflow
+        ## doesn't change anything because we divide by the correction factor
+        pis <- exp(tmp - max(tmp)) * dnorm(X_grid, 0, 1)
+        pis <- pis / sum(pis)
+        XX_post[k, ii] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+      }
+    }
+    
+    ## convert to original scale
+    XX_post <- XX_post * sd_X + mu_X
+    X_pred_bummer <- cbind(X_pred_bummer, XX_post)
+  }
+  save(X_pred_bummer, file=paste0(save_directory, "bummer-cv-predictions.RData"))
+}
+```
+
+
+## Plot results
+
+```{r} 
+layout(matrix(1:6, 3, 2))
+## sort the data to be in the same order as the predictions
+plot(apply(X_pred, 2, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of MVGP model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is close to 95%
+segments(x0=X[sample_idx], y0=apply(X_pred, 2, quantile, prob=0.025), 
+         x1=X[sample_idx], y1=apply(X_pred, 2, quantile, prob=0.975), 
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(apply(X_pred, 2, mean) ~ X[sample_idx]), col="blue")
+summary(lm(apply(X_pred, 2, mean) ~ X[sample_idx]))
+
+## sort the data to be in the same order as the predictions
+plot(pred_mu_WA ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of WA model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is not close to 95%
+segments(x0=X[sample_idx], y0=pred_mu_WA - 2 * pred_sd_WA,
+         x1=X[sample_idx], y1=pred_mu_WA + 2 * pred_sd_WA,
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_WA ~ X[sample_idx]), col="blue")
+summary(lm(pred_mu_WA ~ X[sample_idx]))
+
+## sort the data to be in the same order as the predictions
+plot(pred_mu_MLRC ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of MLRC model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is not close to 95%
+segments(x0=X[sample_idx], y0=pred_mu_MLRC - 2 * pred_sd_MLRC,
+         x1=X[sample_idx], y1=pred_mu_MLRC + 2 * pred_sd_MLRC,
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_MLRC ~ X[sample_idx]), col="blue")
+summary(lm(pred_mu_MLRC ~ X[sample_idx]))
+
+## sort the data to be in the same order as the predictions
+plot(pred_mu_MAT ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of MAT model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is not close to 95%
+segments(x0=X[sample_idx], y0=pred_mu_MAT - 2 * pred_sd_MAT,
+         x1=X[sample_idx], y1=pred_mu_MAT + 2 * pred_sd_MAT,
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(pred_mu_MAT ~ X[sample_idx]), col="blue")
+summary(lm(pred_mu_MAT ~ X[sample_idx]))
+
+## sort the data to be in the same order as the predictions
+plot(apply(preds_rf, 1, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of RF model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is close to 95%
+segments(x0=X[sample_idx], y0=apply(preds_rf, 1, quantile, prob=0.025), 
+         x1=X[sample_idx], y1=apply(preds_rf, 1, quantile, prob=0.975), 
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]), col="blue")
+summary(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]))
+
+## sort the data to be in the same order as the predictions
+plot(apply(X_pred_bummer, 2, mean) ~ X[sample_idx], 
+     ylab="predicted mean", xlab="Observed", 
+     main="Cross-validation of Bummer model", xlim=c(-40, 80), ylim=c(-40, 80))
+## Notice most of the confidence intervals cover the red linear regression line 
+## i.e. the 95% CI is close to 95%
+segments(x0=X[sample_idx], y0=apply(X_pred_bummer, 2, quantile, prob=0.025), 
+         x1=X[sample_idx], y1=apply(X_pred_bummer, 2, quantile, prob=0.975), 
+         col=adjustcolor("black", alpha.f=0.25))
+abline(a=0, b=1, col="red")
+abline(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]), col="blue")
+summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
+
+
+dev.copy(pdf, "cv-plot1.pdf", width=10,height=10)
+
+
+```
+
+
+```{r}
+<<<<<<< HEAD
+coverage <- matrix(0, N, 6)
+MSPE <- matrix(0, N, 6)
+MAE <- matrix(0, N, 6)
+CRPS <- matrix(0, N, 6)
+
+for (i in 1:N) {
+  MSPE[i, 1] <- (X[sample_idx][i] - mean(X_pred[, i]))^2
+  MSPE[i, 2] <- (X[sample_idx][i] - mean(X_pred_bummer[, i]))^2
+  MSPE[i, 3] <- (X[sample_idx][i] - pred_mu_WA[i])^2
+  MSPE[i, 4] <- (X[sample_idx][i] - pred_mu_MLRC[i])^2
+  MSPE[i, 5] <- (X[sample_idx][i] - pred_mu_MAT[i])^2
+  MSPE[i, 6] <- (X[sample_idx][i] - mean(preds_rf[i, ]))^2
+
+  MAE[i, 1] <- abs(X[sample_idx][i] - median(X_pred[, i]))
+  MAE[i, 2] <- abs(X[sample_idx][i] - median(X_pred_bummer[, i]))
+  MAE[i, 3] <- abs(X[sample_idx][i] - pred_mu_WA[i])
+  MAE[i, 4] <- abs(X[sample_idx][i] - pred_mu_MLRC[i])
+  MAE[i, 5] <- abs(X[sample_idx][i] - pred_mu_MAT[i])
+  MAE[i, 6] <- abs(X[sample_idx][i] - median(preds_rf[i, ]))
+    
+  coverage[i, 1] <- 
+    X[sample_idx][i] > quantile(X_pred[, i], prob=0.025) && X[sample_idx][i] < quantile(X_pred[, i], prob=0.975)
+
+  coverage[i, 2] <- 
+    X[sample_idx][i] > quantile(X_pred_bummer[, i], prob=0.025) &&
+    X[sample_idx][i] < quantile(X_pred_bummer[, i], prob=0.975)
+  coverage[i, 3] <- (X[sample_idx][i] > (pred_mu_WA[i] - 2 * pred_sd_WA[i])) && (X[sample_idx][i] < (pred_mu_WA[i] + 2 * pred_sd_WA[i]))
+  coverage[i, 4] <- (X[sample_idx][i] > (pred_mu_MLRC[i] - 2 * pred_sd_MLRC[i])) && (X[sample_idx][i] < (pred_mu_MLRC[i] + 2 * pred_sd_MLRC[i]))
+  (coverage[i, 5] <- X[sample_idx][i] > (pred_mu_MAT[i] - 2 * pred_sd_MAT[i])) && (X[sample_idx][i] < (pred_mu_MAT[i] + 2 * pred_sd_MAT[i]))
+  coverage[i, 6] <-   
+    X[sample_idx][i] > quantile(preds_rf[i, ], prob=0.025) &&
+    X[sample_idx][i] < quantile(preds_rf[i, ], prob=0.975)
+  
+}
+
+CRPS[, 1] <- makeCRPS(X_pred, X[sample_idx], dim(X_pred)[1])
+CRPS[, 2] <- makeCRPS(X_pred_bummer, X[sample_idx], dim(X_pred_bummer)[1])
+CRPS[, 3] <- makeCRPSGauss(pred_mu_WA, pred_sd_WA, X[sample_idx])
+CRPS[, 4] <- makeCRPSGauss(pred_mu_MLRC, pred_sd_MLRC, X[sample_idx])
+CRPS[, 5] <- makeCRPSGauss(pred_mu_MAT, pred_sd_MAT, X[sample_idx])
+CRPS[, 6] <- makeCRPS(t(preds_rf), X[sample_idx], dim(preds_rf)[2])
+
+colnames(MSPE) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(MAE) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(coverage) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(CRPS) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+results <- rbind(
+  apply(MSPE, 2, mean), apply(MAE, 2, mean),
+  apply(coverage, 2, mean), apply(CRPS, 2, mean))
+rownames(results) <- c("MSPE", "MAE", "Coverage", "CRPS")
+library(xtable)
+xtable(results)
+```
+  
+=======
+
+
+
+```
+
+>>>>>>> 474c89874526fdc77c3306cd7da998a74bd5d3ac
+
+
+
+
+
+
+
+
