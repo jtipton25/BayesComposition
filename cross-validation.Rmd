@@ -217,7 +217,7 @@ if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
     }
     
     pred_mu_WA <- c(pred_mu_WA, predWA$fit[, 1])
-    pred_sd_WA <- c(pred_sd_WA, sqrt(predWA$v1.boot[, 1]))
+    pred_sd_WA <- c(pred_sd_WA, sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))
     
     ## MLRC reconstruction - subset to deal with all zero occurrence species
     zeros_idx <- which(colSums(y_prop_train) == 0)
@@ -231,14 +231,14 @@ if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
     }
 
     pred_mu_MLRC <- c(pred_mu_MLRC, predMLRC$fit[, 1])
-    pred_sd_MLRC <- c(pred_sd_MLRC, sqrt(predMLRC$v1.boot[, 1]))
+    pred_sd_MLRC <- c(pred_sd_MLRC, sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2))
     
     ## Modern analogue technique
     modMAT <- MAT(y_prop_train, X_train, k=20, lean=FALSE)
     predMAT <- predict(modMAT, y_prop_test, k=10, sse=TRUE, n.boot=1000)
     
     pred_mu_MAT <- c(pred_mu_MAT, predMAT$fit.boot[, 2])
-    pred_sd_MAT <- c(pred_sd_MAT, sqrt(predMAT$v1.boot[, 2]))
+    pred_sd_MAT <- c(pred_sd_MAT, sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]))
     
     ## Random Forest
     library(randomForest)
@@ -444,6 +444,60 @@ summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
 ```
 
 
+```{r}
+coverage <- matrix(0, N, 6)
+MSPE <- matrix(0, N, 6)
+MAE <- matrix(0, N, 6)
+CRPS <- matrix(0, N, 6)
+
+for (i in 1:N) {
+  MSPE[i, 1] <- (X[sample_idx][i] - mean(X_pred[, i]))^2
+  MSPE[i, 2] <- (X[sample_idx][i] - mean(X_pred_bummer[, i]))^2
+  MSPE[i, 3] <- (X[sample_idx][i] - pred_mu_WA[i])^2
+  MSPE[i, 4] <- (X[sample_idx][i] - pred_mu_MLRC[i])^2
+  MSPE[i, 5] <- (X[sample_idx][i] - pred_mu_MAT[i])^2
+  MSPE[i, 6] <- (X[sample_idx][i] - mean(preds_rf[i, ]))^2
+
+  MAE[i, 1] <- abs(X[sample_idx][i] - median(X_pred[, i]))
+  MAE[i, 2] <- abs(X[sample_idx][i] - median(X_pred_bummer[, i]))
+  MAE[i, 3] <- abs(X[sample_idx][i] - pred_mu_WA[i])
+  MAE[i, 4] <- abs(X[sample_idx][i] - pred_mu_MLRC[i])
+  MAE[i, 5] <- abs(X[sample_idx][i] - pred_mu_MAT[i])
+  MAE[i, 6] <- abs(X[sample_idx][i] - median(preds_rf[i, ]))
+    
+  coverage[i, 1] <- 
+    X[sample_idx][i] > quantile(X_pred[, i], prob=0.025) && X[sample_idx][i] < quantile(X_pred[, i], prob=0.975)
+
+  coverage[i, 2] <- 
+    X[sample_idx][i] > quantile(X_pred_bummer[, i], prob=0.025) &&
+    X[sample_idx][i] < quantile(X_pred_bummer[, i], prob=0.975)
+  coverage[i, 3] <- (X[sample_idx][i] > (pred_mu_WA[i] - 2 * pred_sd_WA[i])) && (X[sample_idx][i] < (pred_mu_WA[i] + 2 * pred_sd_WA[i]))
+  coverage[i, 4] <- (X[sample_idx][i] > (pred_mu_MLRC[i] - 2 * pred_sd_MLRC[i])) && (X[sample_idx][i] < (pred_mu_MLRC[i] + 2 * pred_sd_MLRC[i]))
+  (coverage[i, 5] <- X[sample_idx][i] > (pred_mu_MAT[i] - 2 * pred_sd_MAT[i])) && (X[sample_idx][i] < (pred_mu_MAT[i] + 2 * pred_sd_MAT[i]))
+  coverage[i, 6] <-   
+    X[sample_idx][i] > quantile(preds_rf[i, ], prob=0.025) &&
+    X[sample_idx][i] < quantile(preds_rf[i, ], prob=0.975)
+  
+}
+
+CRPS[, 1] <- makeCRPS(X_pred, X[sample_idx], dim(X_pred)[1])
+CRPS[, 2] <- makeCRPS(X_pred_bummer, X[sample_idx], dim(X_pred_bummer)[1])
+CRPS[, 3] <- makeCRPSGauss(pred_mu_WA, pred_sd_WA, X[sample_idx])
+CRPS[, 4] <- makeCRPSGauss(pred_mu_MLRC, pred_sd_MLRC, X[sample_idx])
+CRPS[, 5] <- makeCRPSGauss(pred_mu_MAT, pred_sd_MAT, X[sample_idx])
+CRPS[, 6] <- makeCRPS(t(preds_rf), X[sample_idx], dim(preds_rf)[2])
+
+colnames(MSPE) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(MAE) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(coverage) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+colnames(CRPS) <- c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF")
+results <- rbind(
+  apply(MSPE, 2, mean), apply(MAE, 2, mean),
+  apply(coverage, 2, mean), apply(CRPS, 2, mean))
+rownames(results) <- c("MSPE", "MAE", "Coverage", "CRPS")
+library(xtable)
+xtable(results)
+```
   
 
 
