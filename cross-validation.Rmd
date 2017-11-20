@@ -455,7 +455,6 @@ dev.copy(pdf, "cv-plot1.pdf", width=10,height=10)
 
 
 ```{r}
-<<<<<<< HEAD
 coverage <- matrix(0, N, 6)
 MSPE <- matrix(0, N, 6)
 MAE <- matrix(0, N, 6)
@@ -509,14 +508,6 @@ rownames(results) <- c("MSPE", "MAE", "Coverage", "CRPS")
 library(xtable)
 xtable(results)
 ```
-  
-=======
-
-
-
-```
-
->>>>>>> 474c89874526fdc77c3306cd7da998a74bd5d3ac
 
 
 
