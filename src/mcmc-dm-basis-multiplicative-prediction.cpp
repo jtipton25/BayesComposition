@@ -30,16 +30,16 @@ using namespace arma;
 ///////////////////////////////////////////////////////////////////////////////
 
 Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
-                  const double& mu_X,
-                  const arma::mat& beta_current,
-                  const arma::rowvec& alpha_current,
-                  const arma::rowvec& y_current,
-                  const arma::rowvec& Xbs_current,
-                  const arma::mat& R_tau_current,
-                  const arma::vec& knots,
-                  const double& d, const int& degree, const int& df,
-                  const arma::vec& rangeX, const double& count_double,
-                  const std::string& file_name) {
+                                 const double& mu_X,
+                                 const arma::mat& beta_current,
+                                 const arma::rowvec& alpha_current,
+                                 const arma::rowvec& y_current,
+                                 const arma::rowvec& Xbs_current,
+                                 const arma::mat& R_tau_current,
+                                 const arma::vec& knots,
+                                 const double& d, const int& degree, const int& df,
+                                 const arma::vec& rangeX, const double& count_double,
+                                 const std::string& file_name) {
   // const arma::mat& R_tau_current,
   //
   //
@@ -154,6 +154,12 @@ List predictRcppDMBasisMultiplicative (const arma::mat& Y_pred, const double mu_
   int message = 500;
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
+  }
+
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
   }
 
   // add in option for reference category for mu
@@ -285,18 +291,22 @@ List predictRcppDMBasisMultiplicative (const arma::mat& Y_pred, const double mu_
     // sample X - ESS
     //
 
-    beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
-    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    arma::mat alpha_pred = exp(Xbs_pred * beta * R_tau);
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
-                                   Y_pred.row(i), Xbs_pred.row(i), R_tau, knots, d,
-                                   degree, df, rangeX, count_pred(i), file_name);
-        X_pred(i) = as<double>(ess_out["X"]);
-        Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
+
+      beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
+      R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+      arma::mat alpha_pred = exp(Xbs_pred * beta * R_tau);
+      if (sample_X) {
+        for (int i=0; i<N_pred; i++) {
+          double X_prior = R::rnorm(0.0, s_X);
+          Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
+                                                    Y_pred.row(i), Xbs_pred.row(i), R_tau, knots, d,
+                                                    degree, df, rangeX, count_pred(i), file_name);
+          X_pred(i) = as<double>(ess_out["X"]);
+          Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
     }
 

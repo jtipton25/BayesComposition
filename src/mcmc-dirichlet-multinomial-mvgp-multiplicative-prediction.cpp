@@ -22,18 +22,18 @@ using namespace arma;
 ///////////////////////////////////////////////////////////////////////////////
 
 Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
-                  const double& mu_X, const arma::vec& X_knots,
-                  const arma::rowvec& y_current,
-                  const arma::rowvec& mu_current,
-                  const arma::mat& eta_star_current,
-                  const arma::rowvec& alpha_current,
-                  const arma::rowvec& D_current,
-                  const arma::rowvec& c_current, const arma::mat& R_tau_current,
-                  const arma::rowvec& Z_current, const double& phi_current,
-                  const arma::mat C_inv_current,
-                  const int& d, const double& count_double,
-                  const std::string& file_name,
-                  const std::string& corr_function) {
+                                 const double& mu_X, const arma::vec& X_knots,
+                                 const arma::rowvec& y_current,
+                                 const arma::rowvec& mu_current,
+                                 const arma::mat& eta_star_current,
+                                 const arma::rowvec& alpha_current,
+                                 const arma::rowvec& D_current,
+                                 const arma::rowvec& c_current, const arma::mat& R_tau_current,
+                                 const arma::rowvec& Z_current, const double& phi_current,
+                                 const arma::mat C_inv_current,
+                                 const int& d, const double& count_double,
+                                 const std::string& file_name,
+                                 const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process
   // prior_sample is a sample from the prior joing multivariate predictive process
   // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
@@ -148,6 +148,12 @@ List predictRcppDMMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
   arma::vec ones_B(B, arma::fill::ones);
+
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
+  }
 
   // count - sum of counts at each site
   arma::vec count_pred(N_pred);
@@ -299,41 +305,45 @@ List predictRcppDMMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X
     // sample X
     //
 
-    // Load MCMC estimated parameters
-    mu = mu_fit.row(k).t();
-    for (int i=0; i<N_pred; i++) {
-      mu_mat.row(i) = mu.t();
-    }
-    phi = phi_fit(k);
-    C = exp(- D_knots / phi);
-    C_chol = chol(C);
-    C_inv = inv_sympd(C);
-    c = exp( - D / phi);
-    Z = c * C_inv;
-    eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
-    xi = xi_fit.row(k).t();
-    tau2 = tau2_fit.row(k).t();
-    R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
-    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    zeta_pred = Z * eta_star * R_tau;
-    alpha_pred = exp(mu_mat + zeta_pred);
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
 
-    if (sample_X) {
+      // Load MCMC estimated parameters
+      mu = mu_fit.row(k).t();
       for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        // double X_prior = R::rnorm(mu_X, s_X);
-        Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots,
-                                   Y_pred.row(i), mu.t(), eta_star,
-                                   alpha_pred.row(i), D.row(i),
-                                   c.row(i), R_tau, Z.row(i), phi,
-                                   C_inv, d, count_pred(i),
-                                   file_name, corr_function);
-        X_pred(i) = as<double>(ess_out["X"]);
-        D.row(i) = as<rowvec>(ess_out["D"]);
-        c.row(i) = as<rowvec>(ess_out["c"]);
-        Z.row(i) = as<rowvec>(ess_out["Z"]);
-        zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        mu_mat.row(i) = mu.t();
+      }
+      phi = phi_fit(k);
+      C = exp(- D_knots / phi);
+      C_chol = chol(C);
+      C_inv = inv_sympd(C);
+      c = exp( - D / phi);
+      Z = c * C_inv;
+      eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+      xi = xi_fit.row(k).t();
+      tau2 = tau2_fit.row(k).t();
+      R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
+      R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+      zeta_pred = Z * eta_star * R_tau;
+      alpha_pred = exp(mu_mat + zeta_pred);
+
+      if (sample_X) {
+        for (int i=0; i<N_pred; i++) {
+          double X_prior = R::rnorm(0.0, s_X);
+          // double X_prior = R::rnorm(mu_X, s_X);
+          Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots,
+                                                    Y_pred.row(i), mu.t(), eta_star,
+                                                    alpha_pred.row(i), D.row(i),
+                                                    c.row(i), R_tau, Z.row(i), phi,
+                                                    C_inv, d, count_pred(i),
+                                                    file_name, corr_function);
+          X_pred(i) = as<double>(ess_out["X"]);
+          D.row(i) = as<rowvec>(ess_out["D"]);
+          c.row(i) = as<rowvec>(ess_out["c"]);
+          Z.row(i) = as<rowvec>(ess_out["Z"]);
+          zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
     }
     //

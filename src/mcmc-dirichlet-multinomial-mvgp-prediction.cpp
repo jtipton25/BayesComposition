@@ -149,6 +149,12 @@ List predictRcppDMMVGP (const arma::mat& Y_pred, const double mu_X,
   arma::vec ones_d(d, arma::fill::ones);
   arma::vec ones_B(B, arma::fill::ones);
 
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
+  }
+
   // count - sum of counts at each site
   arma::vec count_pred(N_pred);
   for (int i=0; i<N_pred; i++) {
@@ -299,41 +305,45 @@ List predictRcppDMMVGP (const arma::mat& Y_pred, const double mu_X,
     // sample X
     //
 
-    // Load MCMC estimated parameters
-    mu = mu_fit.row(k).t();
-    for (int i=0; i<N_pred; i++) {
-      mu_mat.row(i) = mu.t();
-    }
-    phi = phi_fit(k);
-    C = exp(- D_knots / phi);
-    C_chol = chol(C);
-    C_inv = inv_sympd(C);
-    c = exp( - D / phi);
-    Z = c * C_inv;
-    eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
-    xi = xi_fit.row(k).t();
-    tau2 = tau2_fit.row(k).t();
-    R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
-    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    zeta_pred = Z * eta_star * R_tau;
-    alpha_pred = exp(mu_mat + zeta_pred);
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
 
-    if (sample_X) {
+      // Load MCMC estimated parameters
+      mu = mu_fit.row(k).t();
       for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        // double X_prior = R::rnorm(mu_X, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots,
-                                   Y_pred.row(i), mu.t(), eta_star,
-                                   alpha_pred.row(i), D.row(i),
-                                   c.row(i), R_tau, Z.row(i), phi,
-                                   C_inv, d, count_pred(i),
-                                   file_name, corr_function);
-        X_pred(i) = as<double>(ess_out["X"]);
-        D.row(i) = as<rowvec>(ess_out["D"]);
-        c.row(i) = as<rowvec>(ess_out["c"]);
-        Z.row(i) = as<rowvec>(ess_out["Z"]);
-        zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        mu_mat.row(i) = mu.t();
+      }
+      phi = phi_fit(k);
+      C = exp(- D_knots / phi);
+      C_chol = chol(C);
+      C_inv = inv_sympd(C);
+      c = exp( - D / phi);
+      Z = c * C_inv;
+      eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+      xi = xi_fit.row(k).t();
+      tau2 = tau2_fit.row(k).t();
+      R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
+      R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+      zeta_pred = Z * eta_star * R_tau;
+      alpha_pred = exp(mu_mat + zeta_pred);
+
+      if (sample_X) {
+        for (int i=0; i<N_pred; i++) {
+          double X_prior = R::rnorm(0.0, s_X);
+          // double X_prior = R::rnorm(mu_X, s_X);
+          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots,
+                                     Y_pred.row(i), mu.t(), eta_star,
+                                     alpha_pred.row(i), D.row(i),
+                                     c.row(i), R_tau, Z.row(i), phi,
+                                     C_inv, d, count_pred(i),
+                                     file_name, corr_function);
+          X_pred(i) = as<double>(ess_out["X"]);
+          D.row(i) = as<rowvec>(ess_out["D"]);
+          c.row(i) = as<rowvec>(ess_out["c"]);
+          Z.row(i) = as<rowvec>(ess_out["Z"]);
+          zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
     }
     //

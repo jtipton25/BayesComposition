@@ -162,6 +162,11 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
   }
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
+  }
 
   // add in option for reference category for mu
   // this option fixes the first mean parameter at 0
@@ -296,22 +301,25 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
     // sample X - ESS
     //
 
-    arma::vec mu = mu_fit.row(0).t();
-    arma::mat mu_mat(N_pred, d, arma::fill::zeros);
-    for (int i=0; i<N_pred; i++) {
-      mu_mat.row(i) = mu.t();
-    }
-    beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
-    arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
-    if (sample_X) {
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
+      arma::vec mu = mu_fit.row(0).t();
+      arma::mat mu_mat(N_pred, d, arma::fill::zeros);
       for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, mu.t(), beta, alpha_pred.row(i),
-                                   Y_pred.row(i), Xbs_pred.row(i), knots, d,
-                                   degree, df, rangeX, count_pred(i), file_name);
-        X_pred(i) = as<double>(ess_out["X"]);
-        Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        mu_mat.row(i) = mu.t();
+      }
+      beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
+      arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
+      if (sample_X) {
+        for (int i=0; i<N_pred; i++) {
+          double X_prior = R::rnorm(0.0, s_X);
+          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, mu.t(), beta, alpha_pred.row(i),
+                                     Y_pred.row(i), Xbs_pred.row(i), knots, d,
+                                     degree, df, rangeX, count_pred(i), file_name);
+          X_pred(i) = as<double>(ess_out["X"]);
+          Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
     }
 

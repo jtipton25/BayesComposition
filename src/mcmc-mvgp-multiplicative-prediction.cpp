@@ -23,19 +23,19 @@ using namespace arma;
 ///////////////////////////////////////////////////////////////////////////////
 
 Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
-                  const double& mu_X, const arma::vec& X_knots,
-                  const arma::rowvec& y_current,
-                  const arma::vec& mu_current,
-                  const arma::mat& eta_star_current,
-                  const arma::rowvec& zeta_current,
-                  const arma::rowvec& D_current,
-                  const arma::rowvec& c_current,
-                  const arma::mat& R_tau_current,
-                  const arma::rowvec& Z_current, const double& phi_current,
-                  const double& sigma_current, const arma::mat C_inv_current,
-                  const int& N_pred, const int& d,
-                  const std::string& file_name,
-                  const std::string& corr_function) {
+                                 const double& mu_X, const arma::vec& X_knots,
+                                 const arma::rowvec& y_current,
+                                 const arma::vec& mu_current,
+                                 const arma::mat& eta_star_current,
+                                 const arma::rowvec& zeta_current,
+                                 const arma::rowvec& D_current,
+                                 const arma::rowvec& c_current,
+                                 const arma::mat& R_tau_current,
+                                 const arma::rowvec& Z_current, const double& phi_current,
+                                 const double& sigma_current, const arma::mat C_inv_current,
+                                 const int& N_pred, const int& d,
+                                 const std::string& file_name,
+                                 const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process
   // prior_sample is a sample from the prior joing multivariate predictive process
   // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
@@ -134,6 +134,12 @@ List predictRcppMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X,
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
   arma::vec ones_B(B, arma::fill::ones);
+
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
+  }
 
   // standard deviation of covariate
   double s_X = sqrt(s2_X);
@@ -269,75 +275,78 @@ List predictRcppMVGPMultiplicative (const arma::mat& Y_pred, const double mu_X,
     //
     // sample X
     //
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
 
-    // Load MCMC estimated parameters
-    mu = mu_fit.row(k).t();
-    phi = phi_fit(k);
-    C = exp(- D_knots / phi);
-    C_chol = chol(C);
-    C_inv = inv_sympd(C);
-    c = exp( - D / phi);
-    Z = c * C_inv;
-    eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
-    xi = xi_fit.row(k).t();
-    tau2 = tau2_fit.row(k).t();
-    R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
-    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    sigma2 = sigma2_fit(k);
-    zeta_pred = Z * eta_star * R_tau;
+      // Load MCMC estimated parameters
+      mu = mu_fit.row(k).t();
+      phi = phi_fit(k);
+      C = exp(- D_knots / phi);
+      C_chol = chol(C);
+      C_inv = inv_sympd(C);
+      c = exp( - D / phi);
+      Z = c * C_inv;
+      eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
+      xi = xi_fit.row(k).t();
+      tau2 = tau2_fit.row(k).t();
+      R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
+      R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+      sigma2 = sigma2_fit(k);
+      zeta_pred = Z * eta_star * R_tau;
 
 
-    if (sample_X) {
-      if (sample_X_mh) {
-        // sample using Metropolis-Hastings
-        for (int i=0; i<N_pred; i++) {
-          arma::vec X_star = X_pred;
-          X_star(i) += R::rnorm(0.0, X_tune(i));
-          // add in prior mean here
-          arma::rowvec D_proposal = sqrt(pow(X_star(i) + mu_X - X_knots, 2)).t();
-          if (corr_function == "gaussian") {
-            D_proposal = pow(D_proposal, 2.0);
+      if (sample_X) {
+        if (sample_X_mh) {
+          // sample using Metropolis-Hastings
+          for (int i=0; i<N_pred; i++) {
+            arma::vec X_star = X_pred;
+            X_star(i) += R::rnorm(0.0, X_tune(i));
+            // add in prior mean here
+            arma::rowvec D_proposal = sqrt(pow(X_star(i) + mu_X - X_knots, 2)).t();
+            if (corr_function == "gaussian") {
+              D_proposal = pow(D_proposal, 2.0);
+            }
+            // arma::rowvec D_proposal = sqrt(pow(X_star(i) - X_knots, 2)).t();
+            arma::rowvec c_proposal = exp( - D_proposal / phi);
+            arma::rowvec Z_proposal = c_proposal * C_inv;
+            arma::rowvec zeta_proposal = Z_proposal * eta_star * R_tau;
+            double mh1 = R::dnorm(X_star(i), 0.0, s_X, true);
+            double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
+            // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
+            // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
+            for (int j=0; j<d; j++) {
+              mh1 += R::dnorm(Y_pred(i, j), mu(j) + zeta_proposal(j), sigma, true);
+              mh2 += R::dnorm(Y_pred(i, j), mu(j) + zeta_pred(i, j), sigma, true);
+            }
+            double mh = exp(mh1-mh2);
+            if (mh > R::runif(0.0, 1.0)) {
+              X_pred = X_star;
+              D.row(i) = D_proposal;
+              c.row(i) = c_proposal;
+              Z.row(i) = Z_proposal;
+              zeta_pred.row(i) = zeta_proposal;
+              X_accept_batch(i) += 1.0 / 50.0;
+            }
           }
-          // arma::rowvec D_proposal = sqrt(pow(X_star(i) - X_knots, 2)).t();
-          arma::rowvec c_proposal = exp( - D_proposal / phi);
-          arma::rowvec Z_proposal = c_proposal * C_inv;
-          arma::rowvec zeta_proposal = Z_proposal * eta_star * R_tau;
-          double mh1 = R::dnorm(X_star(i), 0.0, s_X, true);
-          double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
-          // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
-          // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
-          for (int j=0; j<d; j++) {
-            mh1 += R::dnorm(Y_pred(i, j), mu(j) + zeta_proposal(j), sigma, true);
-            mh2 += R::dnorm(Y_pred(i, j), mu(j) + zeta_pred(i, j), sigma, true);
+          // update tuning
+          if ((k+1) % 50 == 0){
+            updateTuningVec(k, X_accept_batch, X_tune);
           }
-          double mh = exp(mh1-mh2);
-          if (mh > R::runif(0.0, 1.0)) {
-            X_pred = X_star;
-            D.row(i) = D_proposal;
-            c.row(i) = c_proposal;
-            Z.row(i) = Z_proposal;
-            zeta_pred.row(i) = zeta_proposal;
-            X_accept_batch(i) += 1.0 / 50.0;
+        } else {
+          // sample using ESS
+          for (int i=0; i<N_pred; i++) {
+            double X_prior = R::rnorm(0.0, s_X);
+            Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
+                                                      mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
+                                                      R_tau, Z.row(i), phi, sigma,
+                                                      C_inv, N_pred, d, file_name,
+                                                      corr_function);
+            X_pred(i) = as<double>(ess_out["X"]);
+            D.row(i) = as<rowvec>(ess_out["D"]);
+            c.row(i) = as<rowvec>(ess_out["c"]);
+            Z.row(i) = as<rowvec>(ess_out["Z"]);
+            zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
           }
-        }
-        // update tuning
-        if ((k+1) % 50 == 0){
-          updateTuningVec(k, X_accept_batch, X_tune);
-        }
-      } else {
-        // sample using ESS
-        for (int i=0; i<N_pred; i++) {
-          double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X_multiplicative(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
-                                     mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
-                                     R_tau, Z.row(i), phi, sigma,
-                                     C_inv, N_pred, d, file_name,
-                                     corr_function);
-          X_pred(i) = as<double>(ess_out["X"]);
-          D.row(i) = as<rowvec>(ess_out["D"]);
-          c.row(i) = as<rowvec>(ess_out["c"]);
-          Z.row(i) = as<rowvec>(ess_out["Z"]);
-          zeta_pred.row(i) = as<rowvec>(ess_out["zeta"]);
         }
       }
     }

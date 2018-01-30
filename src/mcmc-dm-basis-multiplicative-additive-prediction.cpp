@@ -114,17 +114,17 @@ Rcpp::List ess_epsilon_multiplicative_additive (const arma::rowvec& epsilon_curr
 ///////////////////////////////////////////////////////////////////////////////
 
 Rcpp::List ess_X_multiplicative_additive (const double& X_current, const double& X_prior,
-                  const double& mu_X,
-                  const arma::mat& beta_current,
-                  const arma::rowvec& alpha_current,
-                  const arma::rowvec& y_current,
-                  const arma::rowvec& Xbs_current,
-                  const arma::mat& R_tau_current,
-                  const arma::rowvec& epsilon_current,
-                  const arma::vec& knots,
-                  const double& d, const int& degree, const int& df,
-                  const arma::vec& rangeX, const double& count_double,
-                  const std::string& file_name) {
+                                          const double& mu_X,
+                                          const arma::mat& beta_current,
+                                          const arma::rowvec& alpha_current,
+                                          const arma::rowvec& y_current,
+                                          const arma::rowvec& Xbs_current,
+                                          const arma::mat& R_tau_current,
+                                          const arma::rowvec& epsilon_current,
+                                          const arma::vec& knots,
+                                          const double& d, const int& degree, const int& df,
+                                          const arma::vec& rangeX, const double& count_double,
+                                          const std::string& file_name) {
   // const arma::mat& R_tau_current,
   //
   //
@@ -217,11 +217,11 @@ Rcpp::List ess_X_multiplicative_additive (const double& X_current, const double&
 
 // [[Rcpp::export]]
 List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const double mu_X,
-                                       const double s2_X, const double min_X,
-                                       const double max_X,
-                                       List params,
-                                       List samples,
-                                       std::string file_name="DM-predict") {
+                                               const double s2_X, const double min_X,
+                                               const double max_X,
+                                               List params,
+                                               List samples,
+                                               std::string file_name="DM-predict") {
 
 
   // Load parameters
@@ -239,6 +239,12 @@ List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const do
   int message = 500;
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
+  }
+
+  // default number of iterations to "convergence
+  int n_rep = 10;
+  if (params.containsElementNamed("n_rep")) {
+    n_rep = as<int>(params["n_rep"]);
   }
 
   // add in option for reference category for mu
@@ -377,39 +383,43 @@ List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const do
 
     Rcpp::checkUserInterrupt();
 
-    //
-    // sample X - ESS
-    //
+    // run for 10 iterations per posterior sample to "guarantee" convergence
+    for (int j=0; j<n_rep; j++) {
 
-    beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
-    R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-    arma::mat alpha_pred = exp(Xbs_pred * beta * R_tau + epsilon_pred);
-    if (sample_X) {
-      for (int i=0; i<N_pred; i++) {
-        double X_prior = R::rnorm(0.0, s_X);
-        Rcpp::List ess_out = ess_X_multiplicative_additive(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
-                                   Y_pred.row(i), Xbs_pred.row(i), R_tau, epsilon_pred.row(i), knots, d,
-                                   degree, df, rangeX, count_pred(i), file_name);
-        X_pred(i) = as<double>(ess_out["X"]);
-        Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+      //
+      // sample X - ESS
+      //
+
+      beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
+      R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
+      arma::mat alpha_pred = exp(Xbs_pred * beta * R_tau + epsilon_pred);
+      if (sample_X) {
+        for (int i=0; i<N_pred; i++) {
+          double X_prior = R::rnorm(0.0, s_X);
+          Rcpp::List ess_out = ess_X_multiplicative_additive(X_pred(i), X_prior, mu_X, beta, alpha_pred.row(i),
+                                                             Y_pred.row(i), Xbs_pred.row(i), R_tau, epsilon_pred.row(i), knots, d,
+                                                             degree, df, rangeX, count_pred(i), file_name);
+          X_pred(i) = as<double>(ess_out["X"]);
+          Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
-    }
 
-    //
-    // sample epsilon
-    //
+      //
+      // sample epsilon
+      //
 
-    if (sample_epsilon) {
-      for (int i=0; i<N_pred; i++) {
-        arma::vec epsilon_prior = mvrnormArmaVecChol(zero_d, R_tau_additive);
-        Rcpp::List ess_out = ess_epsilon_multiplicative_additive(
-          epsilon_pred.row(i), epsilon_prior, beta, alpha_pred,
-          Y_pred.row(i), Xbs_pred.row(i),
-          R_tau, knots, d, degree, df,
-          rangeX, count_pred(i), file_name);
-        epsilon_pred.row(i) = as<rowvec>(ess_out["epsilon"]);
-        alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+      if (sample_epsilon) {
+        for (int i=0; i<N_pred; i++) {
+          arma::vec epsilon_prior = mvrnormArmaVecChol(zero_d, R_tau_additive);
+          Rcpp::List ess_out = ess_epsilon_multiplicative_additive(
+            epsilon_pred.row(i), epsilon_prior, beta, alpha_pred,
+            Y_pred.row(i), Xbs_pred.row(i),
+            R_tau, knots, d, degree, df,
+            rangeX, count_pred(i), file_name);
+          epsilon_pred.row(i) = as<rowvec>(ess_out["epsilon"]);
+          alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
+        }
       }
     }
 
