@@ -22,15 +22,19 @@ n_knots <- 30
 
 # Load Testate Data and R code - Full Data
 ```{r readData, echo=FALSE, include=FALSE, eval=TRUE, results='hide'}
-raw_data <- read.csv(file="~/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
-                     skip=6)
+# raw_data <- read.csv(file="~/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
+#                      skip=6)
+
+raw_data <- read.csv(file="~/Documents/connoR/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", skip=6)
 
 y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
 ## join species
 
-source("~/testate/data/join-testate.R")
+#source("~/testate/data/join-testate.R")
+
+source("~/Documents/connoR/testate/data/join-testate.R")
 
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)
@@ -79,6 +83,11 @@ ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
         axis.text.y = element_text(size = 22),
         axis.title.x = element_text(size = 22), 
         axis.title.y = element_text(size = 22))
+
+#ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
+#  geom_point(alpha=0.25) + stat_density_2d()
+
+
 ```
 
 
@@ -170,7 +179,7 @@ for (i in 1:N) {
   y_percentages[i, ] <- y_percentages[i, ] / sum(y_percentages[i, ])
 }
 
-fitPlotData <- data.frame(species=as.factor(rep(1:d, each=N)), 
+fitPlotData <- data.frame(species=as.factor(rep(colnames(y), each=N)), 
                           count=c(y_percentages), 
                           depth=rep(X, times=d), 
                           alpha=c(p_alpha_post_mean))
@@ -216,7 +225,8 @@ species_hole <- substr(sub(".*\\.", "", sub("\\.catinus", "", sub("\\.minor", ""
 names(y_recon) <- paste(genus_hole, species_hole, sep="")
 
 
-source("~/testate/data/join-testate-caribou.R")
+#source("~/testate/data/join-testate-caribou.R")
+source("~/Documents/connoR/testate/data/join-testate-hole.R")
 
 ##
 ## align names between data sets
@@ -359,9 +369,9 @@ preds_rf <- predict(rf, test, predict.all=TRUE)$individual
 # Fit model
 
 ```{r stan-model}
-if (file.exists("~/BayesComposition/mvgp-test/fit-bummer-stan.RData")) {
+if (file.exists("./mvgp-test/fit-bummer-stan.RData")) {
   ## Load MCMC run
-  load("~/BayesComposition/mvgp-test/fit-bummer-stan.RData")
+  load("./mvgp-test/fit-bummer-stan.RData")
 } else {
   ## Long running MCMC 
   library(rstan)
@@ -547,12 +557,12 @@ ggplot(hole.diff.df, aes(Observation, Covariate, color=Model)) +
 
 
 ```{r}
-# fileToLoad <- read.csv("~/Documents/connoR/Caribou/cariboucounts.csv")
+ fileToLoad <- read.csv("~/Documents/connoR/Caribou/cariboucounts.csv")
 fileToLoad <- read.csv("~/testate/data/rawData/cariboucounts.csv")
 
 y_recon <- fileToLoad[,10:60]
 
-#source("~/Documents/connoR/testate/data/join-testate-caribou.R")
+source("~/Documents/connoR/testate/data/join-testate-caribou.R")
 
 N_recon_full <- sum(y_recon)
 
@@ -630,8 +640,11 @@ if (length(zeros_idx) > 0) {
   predWA <- predict(modWA, y_recon_prop, sse=TRUE, nboot=1000)      
 }
 
+plot(pred_mu_WA, type='l')
+range(pred_mu_WA)
 pred_mu_WA <- predWA$fit[, 1]
-pred_sd_WA <- sqrt(predWA$v1.boot[, 1])
+plot(predWA$)
+pred_sd_WA <- sqrt((predWA$v1.boot[, 1])^2 + predWA$v2.boot[2]^2)
 
 ## MLRC reconstruction - subset to deal with all zero occurrence species
 zeros_idx <- which(colSums(y_prop) == 0)
@@ -645,14 +658,14 @@ if (length(zeros_idx) > 0) {
 }
 
 pred_mu_MLRC <- predMLRC$fit[, 1]
-pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1])
+pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot^2 )
 
 ## Modern analogue technique
 modMAT <- MAT(y_prop, X, k=20, lean=FALSE)
 predMAT <- predict(modMAT, y_recon_prop, k=10, sse=TRUE, n.boot=1000)
 
 pred_mu_MAT <- predMAT$fit.boot[, 2]
-pred_sd_MAT <- sqrt(predMAT$v1.boot[, 2])
+pred_sd_MAT <- sqrt(predMAT$v1.boot[, 2]^2 + predMAT$v2.boot[2]^2)
 
 # ## GJAM model fit
 # idx_hold <- (N+1):(N+N_pred)
@@ -683,6 +696,10 @@ preds_rf <- predict(rf, test, predict.all=TRUE)$individual
 ### predict using stan model
 
 ```{r, cache=TRUE}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+
 ## extract samples
 e = rstan::extract(fit, permuted = TRUE)
 
@@ -707,7 +724,7 @@ for (k in 1:n_iter) {
     alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
     }
   for (i in 1:N_pred) {
-    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, s_X)
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, sd_X)
     pis <- pis / sum(pis)
     X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
   }
@@ -716,6 +733,15 @@ for (k in 1:n_iter) {
 ## convert to original scale
 X_post <- X_post * sd_X + mu_X
 ```
+
+```{r}
+# want to plot on the age model scale instead of observation #
+
+CaribouRecon <- read.csv("~/Documents/connoR/Caribou/CaribouRecon.csv")
+
+
+```
+
 
 
 
@@ -754,6 +780,7 @@ X_diff_ci <- rbind(
 caribou.df <- data.frame(
   Covariate=c(X_ci),
   Observation=rep((1:N_pred), each=6*n_samples*0.95), 
+  Age=rep(CaribouRecon$Age, each=6*n_samples*.95),
   Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
 )
 
@@ -764,13 +791,22 @@ caribou.diff.df <- data.frame(
 )
 
 
-ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
-  geom_violin(position="dodge") +
-  scale_x_discrete(breaks=seq(5, 310, 10)) + 
-  labs(x="Observation", y="Unobserved Water Depth") +
-  facet_wrap(~ Model, ncol=2) + 
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
+# ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
+#   geom_violin(position="dodge") +
+#   scale_x_discrete(breaks=seq(5, 310, 10)) + 
+#   labs(x="Observation", y="Unobserved Water Depth") +
+#   facet_wrap(~ Model, ncol=2) + 
+#   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model))
 
+
+# ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
+#   geom_violin(position="dodge") +
+#   scale_x_discrete(breaks=seq(310, 0, -10)) + 
+#   labs(x="Observation", y="Unobserved Water Depth") +
+#   facet_wrap(~ Model, ncol=2) + 
+#   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+#   scale_y_reverse(lim=c(40, 0))
+#  ggsave("caribou_recons_withUnc.png")
 
 
 ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
@@ -779,8 +815,44 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   labs(x="Observation", y="Unobserved Water Depth") +
   facet_wrap(~ Model, ncol=2) + 
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+  scale_y_reverse(lim=c(40, 0))
+ ggsave("caribou_recons.png")
+ 
+ ggplot(caribou.df, aes(Age, Covariate, color=Model)) +
+  #geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+  scale_y_reverse(lim=c(40, 0))
+ ggsave("caribou_recons_age.png")
+```
+
+
+```{r}
+ggplot(caribou.df, aes(Age, Covariate,)) +
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.125) +
+  facet_wrap(~ Model, ncol=1) + 
   scale_y_reverse(lim=c(65, -20))
-# ggsave("caribou_recons.png")
+ggsave("caribou_recon_ribbon_age.pdf")
+```
+
+```{r}
+ggplot(caribou.df, aes(Age, Covariate,)) +
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.125) +
+  facet_wrap(~ Model, ncol=1) + 
+  scale_y_reverse(lim=c(65, -20))
+ggsave("caribou_recon_ribbon_age.pdf")
 ```
 
 
@@ -799,29 +871,108 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
 
 
 ```{r}
-ggplot(subset(caribou.df, Model %in% c("MVGP", "Bummer")), aes(Observation, Covariate, color=Model)) +
+ggplot(subset(caribou.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariate, color=Model)) +
   labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
-    # stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
-    #              fun.ymax = function(z) {quantile(z, 0.975)},
-    #              geom = "ribbon", aes(Observation, Covariate,
-    #                                   group=Model, color=Model, fill=Model), alpha=0.25) +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model), size=1.25) + 
+     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                  fun.ymax = function(z) {quantile(z, 0.975)},
+                  geom = "ribbon", aes(Observation, Covariate,
+                                       group=Model, fill=Model), alpha=0.05) +
   scale_y_reverse(lim=c(65, -20))
 ```
 
 
 
 ```{r}
-ggplot(caribou.df, aes(Observation, Covariate, color=Model)) + 
+ggplot(caribou.df, aes(Observation, Covariate)) + 
   labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model, color="black")) + 
     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
-                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+                                      group=Model, linetype=NA, fill=Model), alpha=0.3) +
+      stat_summary(fun.ymin = function(z) {quantile(z, 0.25)},
+                 fun.ymax = function(z) {quantile(z, 0.75)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.6) +
   facet_wrap(~Model, ncol=2) +
   scale_y_reverse(lim=c(65, -20))
+
+ggsave("caribourecons_ribbons.png")
 ```
+
+
+
+
+```{r}
+caribou_recons <- ggplot(caribou.df, aes(Observation, Covariate)) + 
+  labs(x="Observation", y="Water Table Depth (cm)") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model, color="black")) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.3) +
+      stat_summary(fun.ymin = function(z) {quantile(z, 0.25)},
+                 fun.ymax = function(z) {quantile(z, 0.75)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.6) +
+  facet_wrap(~Model, ncol=2) + scale_y_reverse() + coord_cartesian(ylim = c(55,-10))
+  
+
+caribou_recons <- caribou_recons + theme(legend.position = "none", axis.title = element_text(size=20), axis.text = element_text(size =18), strip.text = element_text(size = 20))
+
+caribou_recons
+  
+
+ggsave("caribourecons_ribbons.png", width = 10, height = 8)
+
+
+```
+
+
+```{r}
+# change the factor order
+
+levels(caribou.df$Model)
+
+caribou.df$Model <- factor(caribou.df$Model, levels = c("WA", "Bummer", "MVGP", "MLRC", "MAT", "RF"))
+
+```
+
+
+```{r}
+
+
+caribou_recons <- ggplot(caribou.df, aes(Age, Covariate)) + 
+  labs(x="cal yr BP", y="Water Table Depth (cm)") +
+  stat_summary(fun.y = mean, geom = "line", aes(Age, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.3) +
+      stat_summary(fun.ymin = function(z) {quantile(z, 0.25)},
+                 fun.ymax = function(z) {quantile(z, 0.75)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.6) +
+  facet_wrap(~Model, ncol=1) + scale_y_reverse() + scale_x_reverse() + coord_cartesian(ylim = c(55,-10))
+  
+
+caribou_recons <- caribou_recons + theme_bw() + theme(legend.position = "none", axis.title = element_text(size=20), axis.text = element_text(size =18), strip.text = element_text(size = 20))
+
+caribou_recons
+  
+
+ggsave("caribourecons_ribbons_age.png", width = 8, height = 11)
+```
+
+
+```{r}
+caribou.df %>%
+  separate(Model)
+
+
+```
+
 
 
 ## Differenced reconstructions
@@ -923,17 +1074,23 @@ coefWA <- coefficients(modWA)
 waFitData <- data.frame(species=row.names(coefWA), coefs=coefWA)
 
 g2_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
-   geom_point(alpha=0.20) + theme(legend.position="none") +
-   ggtitle("MVGP vs. depth by species") + 
+   geom_point(alpha=0.40) + theme(legend.position="none") +
+   ggtitle("MVGP and WA vs. depth by species") + 
    #geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25) + 
    geom_line(aes(x=depth, y=alpha), fitPlotData, lwd=0.5, col="black") + 
    geom_vline(aes(xintercept=Optima), data=waFitData) + 
-   facet_wrap( ~ species, ncol = 4)
+   facet_wrap( ~ species, ncol = 6)
  
-g2_post
+g2_post + theme_bw()+ theme(legend.position = "none", axis.title = element_blank(), axis.text = element_text(size =14), strip.text = element_text(size = 16), plot.title = element_text(size=20)) 
 
-ggsave("MVGPvWA.pdf")
+
+ggsave("MVGPvWA.pdf", height=10, width = 19)
 
 
 ```
+
+
+
+
+
 

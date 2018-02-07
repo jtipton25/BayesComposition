@@ -195,7 +195,7 @@ for (i in 1:N) {
 
 if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
   load(file=paste0(save_directory, "other-models-cv.RData"))
-} else {
+loa} else {
   pred_mu_WA <- c()
   pred_sd_WA <- c()
   pred_mu_MLRC <- c()
@@ -271,7 +271,7 @@ X_center <- (X-mu_X) / sd_X
 for (i in 1:10) {
   if (file.exists(paste0(save_directory, "bummer-cv-", i, ".RData"))) {
     ## Load MCMC run
-    # load(paste0(save_directory, "bummer-cv-", i, ".RData"))
+     load(paste0(save_directory, "bummer-cv-", i, ".RData"))
   } else {
     message("Fitting other models for fold ", i)
     y_train <- y[-sample_idx[step_cv[i]:(step_cv[i+1] - 1)], ]
@@ -373,7 +373,7 @@ if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
 ## Plot results
 
 ```{r} 
-layout(matrix(1:6, 3, 2))
+layout(matrix(1:6, 2, 3))
 ## sort the data to be in the same order as the predictions
 plot(apply(X_pred, 2, mean) ~ X[sample_idx], ylab="predicted mean", xlab="Observed", 
      main="Cross-validation of MVGP model", xlim=c(-40, 80), ylim=c(-40, 80))
@@ -448,7 +448,7 @@ abline(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]), col="blue")
 summary(lm(apply(X_pred_bummer, 2, mean) ~ X[sample_idx]))
 
 
-dev.copy(pdf, "cv-plot1.pdf", width=10,height=10)
+dev.copy(pdf, "cv-plot1.pdf", width=9,height=6)
 
 
 ```
