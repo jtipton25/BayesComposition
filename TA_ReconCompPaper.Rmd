@@ -1,7 +1,9 @@
 ---
 title: "Analyses for TA reconstruction comparison paper"
 author: "Connor Nolan"
-output: html_notebook
+output:
+  html_document: default
+  html_notebook: default
 ---
 
 
@@ -106,8 +108,8 @@ progress_file <- "mvgp-dm-testate-bspline.txt"
 
 
 ## this file assumes you have already run the mcmc and have results to load
-if (file.exists(here(progress_directory, save_file))) {
-  load(here(progress_directory, save_file))  
+if (file.exists(here("mvgp-test", save_file))) {
+  load(here("mvgp-test", save_file))  
 } else {
    ## potentially long running MCMC code
   out <- fit_compositional_data(y=y, X=X, params=params, 
@@ -253,7 +255,7 @@ ggplot(caribou.df, aes(Observation, Covariate)) +
 
 Fit the other models
 
-```{r}
+```{r, cache=TRUE}
 y_prop <- y
 y_recon_prop <- y_recon
 for (i in 1:N) {
