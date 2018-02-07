@@ -13,6 +13,8 @@ library(ggplot2)
 library(gjam)
 library(rioja)
 library(analogue)
+library(here)
+
 N <- 500
 N_pred <- 25
 d <- 4
@@ -22,12 +24,12 @@ n_knots <- 30
 
 
 ```{r, echo=FALSE, include=FALSE, eval=TRUE, results='hide'}
-raw_data <- read.csv(file="~/Documents/connoR/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", skip=6)
+raw_data <- read.csv(file=here("data", "North American Raw Testate - Paleon 2017-Sheet1.csv"), skip=6)
 
 y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
-source("~/Documents/connoR/testate/data/join-testate.R")
+source(here("data", "join-testate.R"))
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)
 
@@ -90,21 +92,32 @@ sd_X <- sd(X)
 X_knots <- seq(min(X, na.rm=TRUE)-1.25*sd(X, na.rm=TRUE), 
                max(X, na.rm=TRUE)+1.25*sd(X, na.rm=TRUE), length=n_knots)
 
-params <- list(n_adapt=10000, n_mcmc=20000, n_thin=20, 
+params <- list(n_adapt=5000, n_mcmc=10000, n_thin=20, 
                likelihood="dirichlet-multinomial",
                function_type = "basis",
                additive_correlation=FALSE, 
                multiplicative_correlation=FALSE, 
                message=100, n_chains=4, n_cores=4, df=8)
 
-save_directory <- "./mvgp-test/"
+save_directory <- here("mvgp-test")
 save_file <- "mvgp-dm-testate-bspline.RData"
-progress_directory <- "./mvgp-test/"
+progress_directory <- here("mvgp-test")
 progress_file <- "mvgp-dm-testate-bspline.txt"
 
 
 ## this file assumes you have already run the mcmc and have results to load
-load(paste0(save_directory, save_file))
+if (file.exists(here(progress_directory, save_file))) {
+  load(here(progress_directory, save_file))  
+} else {
+   ## potentially long running MCMC code
+  out <- fit_compositional_data(y=y, X=X, params=params, 
+                                progress_directory = progress_directory,
+                                progress_file = progress_file, 
+                                save_directory = save_directory,
+                                save_file = save_file)
+  save(out, file=here("mvgp-test", save_file))
+}
+
 
 ```
 
@@ -120,7 +133,6 @@ beta_post <- samples$beta
 ```{r}
 Rhat <- make_gelman_rubin(out)
 layout(matrix(1:3, 3, 1))
-# hist(Rhat[grepl("alpha=", names(Rhat))], main = "Rhat for alpha")
 hist(Rhat[grepl("mu", names(Rhat))], main = "Rhat for mu")
 hist(Rhat[grepl("beta", names(Rhat))], main = "Rhat for beta")
 hist(Rhat, main="All parameters")
@@ -129,9 +141,7 @@ max(unlist(na.omit(Rhat)))
 ```
 
 ```{r}
-## Posterior plots
-##
-
+## Trace plots
 layout(matrix(1:4, 2, 2))
 matplot(beta_post[, , 1], type='l')
 matplot(beta_post[, , 2], type='l')
@@ -178,11 +188,11 @@ multiplot(g1_post, g2_post, cols=2)
 #Reconstructions for Caribou Bog
 
 ```{r}
- fileToLoad <- read.csv("~/Documents/connoR/Caribou/cariboucounts.csv")
+fileToLoad <- read.csv(here("data", "cariboucounts.csv"))
 
 y_recon <- fileToLoad[,10:60]
 
-source("~/Documents/connoR/testate/data/join-testate-caribou.R")
+source(here("data", "join-testate-caribou.R"))
 
 N_recon_full <- sum(y_recon)
 
@@ -214,10 +224,15 @@ N_recon_full - N_recon_reduced
 ```
 
 ```{r}
-pred <- predict_compositional_data(as.matrix(y_recon), X, 
-                           params=params, samples=samples, 
-                           progress_directory=progress_directory,
-                           progress_file = "DM-predict.txt")
+if (file.exists(here("mvgp-test", "caribou-predictions.RData"))) {
+  load(here("mvgp-test", "caribou-predictions.RData"))
+} else {
+  pred <- predict_compositional_data(as.matrix(y_recon), X, 
+                                     params=params, samples=samples, 
+                                     progress_directory=progress_directory,
+                                     progress_file = "DM-predict.txt")
+  save(pred, file=here("mvgp-test", "caribou-predictions.RData"))
+}
 ```
 
 ```{r}
@@ -259,10 +274,7 @@ if (length(zeros_idx) > 0) {
   predWA <- predict(modWA, y_recon_prop, sse=TRUE, nboot=1000)      
 }
 
-plot(pred_mu_WA, type='l')
-range(pred_mu_WA)
 pred_mu_WA <- predWA$fit[, 1]
-plot(predWA$)
 pred_sd_WA <- sqrt((predWA$v1.boot[, 1])^2 + predWA$v2.boot[1]^2)
 
 ## MLRC reconstruction - subset to deal with all zero occurrence species
@@ -300,7 +312,7 @@ preds_rf <- predict(rf, test, predict.all=TRUE)$individual
 Bummer Model - fit in stan
 
 ```{r}
-load("./mvgp-test/fit-bummer-stan.RData")
+load(here("mvgp-test", "fit-bummer-stan.RData"))
 ```
 
 predict with Bummer model
@@ -348,7 +360,7 @@ X_post <- X_post * sd_X + mu_X
 ```{r}
 # want to plot on the age model scale instead of observation #
 
-CaribouRecon <- read.csv("~/Documents/connoR/Caribou/CaribouRecon.csv")
+CaribouRecon <- read.csv(here("data", "CaribouRecon.csv"))
 ```
 
 
@@ -404,32 +416,32 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
  ggsave("caribou_recons_age.png")
 ```
 
-```{r}
-ggplot(caribou.df, aes(Age, Covariate,)) +
-  labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
-    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
-                 fun.ymax = function(z) {quantile(z, 0.975)},
-                 geom = "ribbon", aes(Observation, Covariate,
-                                      group=Model, color=Model, fill=Model), alpha=0.125) +
-  facet_wrap(~ Model, ncol=1) + 
-  scale_y_reverse(lim=c(65, -20))
-ggsave("caribou_recon_ribbon_age.pdf")
-```
+<!-- ```{r} -->
+<!-- ggplot(caribou.df, aes(Age, Covariate,)) + -->
+<!--   labs(x="Observation", y="Unobserved Water Depth") + -->
+<!--   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + -->
+<!--     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)}, -->
+<!--                  fun.ymax = function(z) {quantile(z, 0.975)}, -->
+<!--                  geom = "ribbon", aes(Observation, Covariate, -->
+<!--                                       group=Model, color=Model, fill=Model), alpha=0.125) + -->
+<!--   facet_wrap(~ Model, ncol=1) + -->
+<!--   scale_y_reverse(lim=c(65, -20)) -->
+<!-- ggsave("caribou_recon_ribbon_age.pdf") -->
+<!-- ``` -->
 
 
-```{r}
-ggplot(caribou.df, aes(Age, Covariate,)) +
-  labs(x="Observation", y="Unobserved Water Depth") +
-  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
-    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
-                 fun.ymax = function(z) {quantile(z, 0.975)},
-                 geom = "ribbon", aes(Observation, Covariate,
-                                      group=Model, color=Model, fill=Model), alpha=0.125) +
-  facet_wrap(~ Model, ncol=1) + 
-  scale_y_reverse(lim=c(65, -20))
-ggsave("caribou_recon_ribbon_age.pdf")
-```
+<!-- ```{r} -->
+<!-- ggplot(caribou.df, aes(Age, Covariate,)) + -->
+<!--   labs(x="Observation", y="Unobserved Water Depth") + -->
+<!--   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + -->
+<!--     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)}, -->
+<!--                  fun.ymax = function(z) {quantile(z, 0.975)}, -->
+<!--                  geom = "ribbon", aes(Observation, Covariate, -->
+<!--                                       group=Model, color=Model, fill=Model), alpha=0.125) + -->
+<!--   facet_wrap(~ Model, ncol=1) + -->
+<!--   scale_y_reverse(lim=c(65, -20)) -->
+<!-- ggsave("caribou_recon_ribbon_age.pdf") -->
+<!-- ``` -->
 
 
 ```{r}
