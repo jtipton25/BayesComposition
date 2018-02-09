@@ -31,10 +31,7 @@ y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
 ## join species
-
-#source("~/testate/data/join-testate.R")
-
-source("~/Documents/connoR/testate/data/join-testate.R")
+y <- join_testate(y)
 
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)

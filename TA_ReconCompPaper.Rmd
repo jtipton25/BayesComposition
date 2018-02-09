@@ -31,7 +31,8 @@ raw_data <- read.csv(file=here("data", "North American Raw Testate - Paleon 2017
 y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
-source(here("data", "join-testate.R"))
+## join some taxa
+y <- join_testate(y)
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)
 
@@ -194,7 +195,8 @@ fileToLoad <- read.csv(here("data", "cariboucounts.csv"))
 
 y_recon <- fileToLoad[,10:60]
 
-source(here("data", "join-testate-caribou.R"))
+## join some testate taxa names to be consistent with model fit
+y_recon <- join_caribou(y_recon)
 
 N_recon_full <- sum(y_recon)
 
@@ -255,7 +257,7 @@ ggplot(caribou.df, aes(Observation, Covariate)) +
 
 Fit the other models
 
-```{r, cache=TRUE}
+```{r, cache=TRUE, message=FALSE}
 y_prop <- y
 y_recon_prop <- y_recon
 for (i in 1:N) {

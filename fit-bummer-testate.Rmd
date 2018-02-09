@@ -32,8 +32,7 @@ y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
 ## join species
-
-source(here("data", "join-testate.R"))
+y <- join_testate(y)
 
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)
@@ -110,6 +109,13 @@ if (file.exists(here("mvgp-test", "fit-bummer-stan.RData"))) {
     sigma2=runif(d, 1, 5), 
     alpha=matrix(runif(N*d, 1, 5), N, d)) } 
   
+  bummer_model <- stan_model(here("bummer-dm.stan"))
+  # ADVI
+  fit_vb <- vb(bummer_model, data=dat, output_samples=2000, seed=123)
+  
+  # ADVI+fullrank
+  fit_vbfr <- vb(bummer_model, data=dat, output_samples=2000, seed=123, algorithm = "fullrank")
+
   fit = stan(file=here("bummer-dm.stan"), iter=n_mcmc,
              verbose=FALSE, data=dat, chains=4, init=init_fun,
              control=list(adapt_delta=0.99, stepsize=0.01, max_treedepth=15))
@@ -194,7 +200,8 @@ fileToLoad <- read.csv(here("data", "cariboucounts.csv"))
 
 y_recon <- fileToLoad[,10:60]
 
-source(here("data", "join-testate-caribou.R"))
+## join species
+y_recon <- join_caribou(y_recon)
 
 N_recon_full <- sum(y_recon)
 
@@ -245,14 +252,14 @@ for (k in 1:n_iter) {
     alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
     }
   for (i in 1:N_pred) {
-    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, sd_X)
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
     pis <- pis / sum(pis)
     X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
   }
 }    
 
 ## convert to original scale
-X_post <- X_post * sd_X + mu_X
+X_post <- X_post * sd_X + mean_X
 ```
 
 
@@ -295,6 +302,204 @@ ggplot(sim.df, aes(observation, covariate)) +
   scale_x_discrete(breaks=seq(5, 400, 5)) + 
   stat_summary(aes(x=observation, y=covariate, group=1), fun.y=mean, geom="line", col="red")
 ```
+
+
+
+
+
+## Model using ADVI
+
+```{r advi-model}
+if (file.exists(here("mvgp-test", "fit-bummer-advi.RData"))) {
+  ## Load MCMC run
+  load(here("mvgp-test", "fit-bummer-advi"))
+} else {
+  ## Long running MCMC 
+  library(rstan)
+  
+  dat=list(N=N, d=d, X=X_center, y=as.matrix(y, N, d))
+  
+  init_fun <- function() { list(
+    a=runif(d, 1, 10), 
+    mu=rnorm(d, 0, 1),
+    sigma2=runif(d, 1, 5), 
+    alpha=matrix(runif(N*d, 1, 5), N, d)) } 
+  
+  bummer_model <- stan_model(here("bummer-dm.stan"))
+  # ADVI
+  # fit_vb <- vb(bummer_model, data=dat, output_samples=2000, seed=123)
+  
+  # ADVI+fullrank
+  fit_vbfr <- vb(bummer_model, data=dat, output_samples=2000, seed=123, algorithm = "fullrank")
+
+  save(fit_vbfr, file=here("mvgp-test", "fit-bummer-advi.RData"))
+}
+```
+
+
+
+
+
+```{r}
+## extract samples
+e = rstan::extract(fit_vbfr, permuted = TRUE)
+layout(matrix(1:3, 3, 1))
+matplot(e$a, type='l')
+matplot(e$mu, type='l')
+matplot(e$sigma2, type='l')
+```
+
+
+```{r}
+matplot(e$alpha, type='l')
+```
+
+
+
+```{r}
+p_alpha <- apply(e$alpha, c(2,3), mean)
+for (i in 1:N) {
+  p_alpha[i, ] <- p_alpha[i, ] / sum(p_alpha[i, ])
+}
+testateFitData <- data.frame(species=as.factor(rep(colnames(y), each=N)),
+                             Count=c(as.matrix(y_prop)), 
+                             Wetness=rep(X, times=dim(y)[2]), 
+                             p_alpha=c(p_alpha))
+
+ggplot(testateFitData, aes(x=Wetness, y=Count, color=species, group=species)) +
+  geom_point(alpha=0.25) +
+  # geom_line(stat="smooth", method="loess", aes(y=Count, x=Wetness),
+  #           alpha=0.5, lwd=1.25) +
+  theme(legend.position="none") + ggtitle("Testate Composition vs. Water Table Depth") + 
+  labs(x="Water Table Depth", y="Composition") + 
+  theme(plot.title=element_text(size=24, face="bold", hjust=0.5)) + 
+  theme(axis.text.x = element_text(size = 22), 
+        axis.text.y = element_text(size = 22),
+        axis.title.x = element_text(size = 22), 
+        axis.title.y = element_text(size = 22)) +
+  geom_line(aes(y=p_alpha, x=Wetness, color=species)) + 
+  facet_wrap(~species, ncol=6)
+```
+
+
+## Composition sampling for predicting missing X
+
+```{r}
+fileToLoad <- read.csv(here("data", "cariboucounts.csv"))
+
+y_recon <- fileToLoad[,10:60]
+
+## join species
+y_recon <- join_caribou(y_recon)
+
+N_recon_full <- sum(y_recon)
+
+idx1 <- colnames(y) %in% names(y_recon)
+# names(y_recon)[!idx1]
+# names(y_cal)[!idx2]
+
+## add in any species in calibation data not in reconstruction data
+for (i in colnames(y)[!idx1]){
+  y_recon[, i] <- rep(0, dim(y_recon)[1])
+}
+
+idx2 <- names(y_recon) %in% colnames(y)
+## remove species in reconstruction data not in calibration data
+for (i in names(y_recon)[!idx2]){
+  y_recon[, i] <- NULL
+}
+
+y_recon <- y_recon[, order(colnames(y_recon))]
+
+## check the names and orderings
+all.equal(colnames(y), colnames(y_recon))
+
+## Note: we are reducing the testate counts by about 25%...
+N_recon_reduced <- sum(y_recon)
+N_recon_full - N_recon_reduced
+```
+
+```{r}
+ddirmult <- function(yy, alpha) {
+  yy <- as.numeric(yy)
+  sum_y <- sum(yy)
+  return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) +
+                   apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum)))
+}
+n_iter <- dim(e$a)[1]
+n_grid <- 100
+N_pred <- dim(y_recon)[1]
+X_post <- matrix(0, n_iter, N_pred)
+X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+
+for (k in 1:n_iter) {
+  if (k %% 10 == 0) {
+    message("Iteration ", k, " out of ", n_iter)
+  }
+  # alpha_pred[k, , ] <- sapply(1:n_grid, function(ii) { 
+  #   pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20) 
+  # })
+  for (ii in 1:n_grid) {
+    alpha_pred[k, ii, ] <- pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20)
+  }
+  # X_post[k, ] <- sapply(1:N_pred, function(i) {
+  #   pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
+  #   pis <- pis / sum(pis)
+  #   return(sample(X_grid, size=1, replace=FALSE, prob=pis))
+  # })
+  for (i in 1:N_pred) {
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
+    pis <- pis / sum(pis)
+    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+  }
+}    
+
+## convert to original scale
+X_post <- X_post * sd_X + mean_X
+```
+
+
+```{r}
+layout(matrix(1:9, 3, 3))
+hist(X_post[, 1])
+hist(X_post[, 2])
+hist(X_post[, 3])
+hist(X_post[, 4])
+hist(X_post[, 5])
+hist(X_post[, 6])
+hist(X_post[, 7])
+hist(X_post[, 8])
+hist(X_post[, 9])
+```
+
+
+```{r}
+layout(matrix(1:3, 3, 1))
+
+layout(matrix(1, 1, 1))
+matplot(apply(X_post, 2, mean), type='l')
+matplot(apply(X_post, 2, quantile, prob = 0.025), 
+        type='l', add=TRUE, lty=2)
+matplot(apply(X_post, 2, quantile, prob = 0.975), 
+        type='l', add=TRUE, lty=2)
+```
+
+
+```{r}
+n_samples <- dim(X_post)[1]
+N_recon <- dim(X_post)[2]
+sim.df <- data.frame(covariate=c(X_post), 
+                     observation=factor(rep(1:N_recon, each=n_samples)), 
+                     iteration = factor(rep(1:n_samples, times=N_recon)))
+## violin version of plot
+##  only add observation ticks every 10 observations
+ggplot(sim.df, aes(observation, covariate)) +
+  geom_violin(position="identity")  + 
+  scale_x_discrete(breaks=seq(5, 400, 5)) + 
+  stat_summary(aes(x=observation, y=covariate, group=1), fun.y=mean, geom="line", col="red")
+```
+
 
 
 

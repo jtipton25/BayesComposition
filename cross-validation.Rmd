@@ -13,6 +13,8 @@ library(ggplot2)
 library(gjam)
 library(rioja)
 library(analogue)
+library(here)
+
 N <- 500
 N_pred <- 25
 d <- 4
@@ -25,15 +27,13 @@ n_knots <- 30
 #raw_data <- read.csv(file="~/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
  #                    skip=6)
 
-raw_data <- read.csv(file="~/Documents/connoR/testate/data/North American Raw Testate - Paleon 2017-Sheet1.csv", 
+raw_data <- read.csv(file=here("data", "North American Raw Testate - Paleon 2017-Sheet1.csv"), 
                      skip=6)
 y <- raw_data[, 12:85]
 X <- raw_data$WTD..cm.
 
 ## join species
-
-#source("~/testate/data/join-testate.R")
-source("~/Documents/connoR/testate/data/join-testate.R")
+y <- join_testate(y)
 
 ## remove zeros
 no_obs <- which(apply(y, 2, sum) == 0)
@@ -87,12 +87,12 @@ ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
 
 ```{r}
 ## 10 fold cv
-if (file.exists("~/Google Drive/mvgp-test/cv-idx.RData")) {
+if (file.exists(here("mvgp-test", "cv-idx.RData"))) {
   #load("~/Google Drive/mvgp-test/cv-idx.RData")
-  load("./mvgp-test/cv-idx.RData")
+  load(here("mvgp-test", "cv-idx.RData"))
 } else {
   sample_idx <- sample(1:N, replace=FALSE)
-  save(sample_idx, file="~/Google Drive/mvgp-test/cv-idx.RData")
+  save(sample_idx, file=here("mvgp-test", "cv-idx.RData"))
 }
 step_cv <- c(ceiling(seq(1, N, by = length(sample_idx)/10)), N+1)
 ```

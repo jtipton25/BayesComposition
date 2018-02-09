@@ -40,7 +40,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -59,7 +59,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -78,7 +78,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -97,7 +97,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -116,7 +116,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -135,7 +135,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -154,7 +154,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -173,7 +173,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -192,7 +192,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -211,7 +211,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -230,7 +230,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -249,7 +249,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -268,7 +268,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -287,7 +287,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<Rcpp::List >(rcpp_result_gen);
     }
 
@@ -306,7 +306,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -325,7 +325,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -344,7 +344,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -363,7 +363,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -382,7 +382,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -401,7 +401,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::mat >(rcpp_result_gen);
     }
 
@@ -420,7 +420,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -439,7 +439,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -458,7 +458,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<double >(rcpp_result_gen);
     }
 
@@ -477,7 +477,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
@@ -496,7 +496,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
     }
 
     inline void updateTuningVec(const int k, arma::vec& accept_tmp, arma::vec& tune) {
@@ -514,7 +514,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
     }
 
     inline void updateTuningMat(const int k, arma::mat& accept_tmp, arma::mat& tune) {
@@ -532,7 +532,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
     }
 
     inline void updateTuningMV(const int& k, double& accept_rate, double& lambda, arma::mat& batch_samples, arma::mat& Sigma_tune, arma::mat Sigma_tune_chol) {
@@ -550,7 +550,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
     }
 
     inline void updateTuningMVMat(const int& k, arma::vec& accept_rate, arma::vec& lambda, arma::cube& batch_samples, arma::cube& Sigma_tune, arma::cube Sigma_tune_chol) {
@@ -568,7 +568,7 @@ namespace BayesComposition {
         if (rcpp_result_gen.inherits("interrupted-error"))
             throw Rcpp::internal::InterruptedException();
         if (rcpp_result_gen.inherits("try-error"))
-            throw Rcpp::exception(as<std::string>(rcpp_result_gen).c_str());
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
     }
 
 }
