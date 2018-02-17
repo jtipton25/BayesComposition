@@ -1082,6 +1082,68 @@ RcppExport SEXP _BayesComposition_rMVNArmaScalar(SEXP aSEXP, SEXP bSEXP) {
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// rWishartArmaMat
+arma::mat rWishartArmaMat(const unsigned int& df, const arma::mat& S);
+static SEXP _BayesComposition_rWishartArmaMat_try(SEXP dfSEXP, SEXP SSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const unsigned int& >::type df(dfSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type S(SSEXP);
+    rcpp_result_gen = Rcpp::wrap(rWishartArmaMat(df, S));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _BayesComposition_rWishartArmaMat(SEXP dfSEXP, SEXP SSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(_BayesComposition_rWishartArmaMat_try(dfSEXP, SSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// rIWishartArmaMat
+arma::mat rIWishartArmaMat(const unsigned int& df, const arma::mat& S);
+static SEXP _BayesComposition_rIWishartArmaMat_try(SEXP dfSEXP, SEXP SSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const unsigned int& >::type df(dfSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type S(SSEXP);
+    rcpp_result_gen = Rcpp::wrap(rIWishartArmaMat(df, S));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _BayesComposition_rIWishartArmaMat(SEXP dfSEXP, SEXP SSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(_BayesComposition_rIWishartArmaMat_try(dfSEXP, SSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
 // seq_lenC
 arma::vec seq_lenC(const int& n);
 static SEXP _BayesComposition_seq_lenC_try(SEXP nSEXP) {
@@ -1301,6 +1363,8 @@ static int _BayesComposition_RcppExport_validate(const char* sig) {
         signatures.insert("arma::vec(*mvrnormArmaVecChol)(const arma::vec&,const arma::mat&)");
         signatures.insert("arma::vec(*rMVNArma)(arma::mat&,arma::vec&)");
         signatures.insert("double(*rMVNArmaScalar)(const double&,const double&)");
+        signatures.insert("arma::mat(*rWishartArmaMat)(const unsigned int&,const arma::mat&)");
+        signatures.insert("arma::mat(*rIWishartArmaMat)(const unsigned int&,const arma::mat&)");
         signatures.insert("arma::vec(*seq_lenC)(const int&)");
         signatures.insert("void(*updateTuning)(const int,double&,double&)");
         signatures.insert("void(*updateTuningVec)(const int,arma::vec&,arma::vec&)");
@@ -1336,6 +1400,8 @@ RcppExport SEXP _BayesComposition_RcppExport_registerCCallable() {
     R_RegisterCCallable("BayesComposition", "_BayesComposition_mvrnormArmaVecChol", (DL_FUNC)_BayesComposition_mvrnormArmaVecChol_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_rMVNArma", (DL_FUNC)_BayesComposition_rMVNArma_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_rMVNArmaScalar", (DL_FUNC)_BayesComposition_rMVNArmaScalar_try);
+    R_RegisterCCallable("BayesComposition", "_BayesComposition_rWishartArmaMat", (DL_FUNC)_BayesComposition_rWishartArmaMat_try);
+    R_RegisterCCallable("BayesComposition", "_BayesComposition_rIWishartArmaMat", (DL_FUNC)_BayesComposition_rIWishartArmaMat_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_seq_lenC", (DL_FUNC)_BayesComposition_seq_lenC_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_updateTuning", (DL_FUNC)_BayesComposition_updateTuning_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_updateTuningVec", (DL_FUNC)_BayesComposition_updateTuningVec_try);
@@ -1390,6 +1456,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BayesComposition_mvrnormArmaVecChol", (DL_FUNC) &_BayesComposition_mvrnormArmaVecChol, 2},
     {"_BayesComposition_rMVNArma", (DL_FUNC) &_BayesComposition_rMVNArma, 2},
     {"_BayesComposition_rMVNArmaScalar", (DL_FUNC) &_BayesComposition_rMVNArmaScalar, 2},
+    {"_BayesComposition_rWishartArmaMat", (DL_FUNC) &_BayesComposition_rWishartArmaMat, 2},
+    {"_BayesComposition_rIWishartArmaMat", (DL_FUNC) &_BayesComposition_rIWishartArmaMat, 2},
     {"_BayesComposition_seq_lenC", (DL_FUNC) &_BayesComposition_seq_lenC, 1},
     {"_BayesComposition_updateTuning", (DL_FUNC) &_BayesComposition_updateTuning, 3},
     {"_BayesComposition_updateTuningVec", (DL_FUNC) &_BayesComposition_updateTuningVec, 3},

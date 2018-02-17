@@ -74,36 +74,70 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   arma::vec ones_B(B, arma::fill::ones);
   arma::vec zero_df(df, arma::fill::zeros);
 
-  // default normal prior for mean of overall means
-  double mu_mu = 0.0;
-  if (params.containsElementNamed("mu_mu")) {
-    mu_mu = as<double>(params["mu_mu"]);
-  }
-  // default prior for standard deviation of overall means
-  double sigma_mu = 5.0;
-  if (params.containsElementNamed("sigma_mu")) {
-    mu_mu = as<double>(params["sigma_mu"]);
-  }
+  // // default normal prior for mean of overall means
+  // double mu_mu = 0.0;
+  // if (params.containsElementNamed("mu_mu")) {
+  //   mu_mu = as<double>(params["mu_mu"]);
+  // }
+  // // default prior for standard deviation of overall means
+  // double sigma_mu = 5.0;
+  // if (params.containsElementNamed("sigma_mu")) {
+  //   mu_mu = as<double>(params["sigma_mu"]);
+  // }
 
-    // default normal prior for regression coefficients
-  arma::vec mu_beta(df, arma::fill::zeros);
+  // default normal prior pooling of regression coefficients
+  arma::vec mu_beta_0(df, arma::fill::zeros);
+  if (params.containsElementNamed("mu_beta_0")) {
+    mu_beta_0 = as<vec>(params["mu_beta_0"]);
+  }
+  // default prior for pooling of regression coefficient covariance
+  arma::mat Sigma_beta_0(df, df, arma::fill::eye);
+  Sigma_beta_0 *= 1.0;
+  if (params.containsElementNamed("Sigma_beta_0")) {
+    Sigma_beta_0 = as<mat>(params["Sigma_beta_0"]);
+  }
+  arma::mat Sigma_beta_0_inv = inv_sympd(Sigma_beta_0);
+  // default prior inverse Wishart degrees of freedom
+  double nu = df + 2.0;
+  if (params.containsElementNamed("nu")) {
+    nu = as<int>(params["nu"]);
+  }
+  // default prior matrix for inverse Wishart
+  arma::mat S(df, df, arma::fill::eye);
+  S *= 5.0;
+  if (params.containsElementNamed("S")) {
+    S = as<mat>(params["S"]);
+  }
+  arma::mat S_inv = inv_sympd(S);
+
+  // initialize hierarchical pooling mean of beta
+  arma::vec mu_beta = mvrnormArmaVec(mu_beta_0, Sigma_beta_0);
   if (params.containsElementNamed("mu_beta")) {
     mu_beta = as<vec>(params["mu_beta"]);
   }
-  // default prior for overall mean mu
-  arma::mat Sigma_beta(df, df, arma::fill::eye);
-  Sigma_beta *= 1.0;
+  bool sample_mu_beta = true;
+  if (params.containsElementNamed("sample_mu_beta")) {
+    sample_mu_beta = as<bool>(params["sample_mu_beta"]);
+  }
+
+  // initialize hierarchical pooling covariance of beta
+  arma::mat Sigma_beta = rIWishartArmaMat(nu, S);
   if (params.containsElementNamed("Sigma_beta")) {
     Sigma_beta = as<mat>(params["Sigma_beta"]);
   }
   arma::mat Sigma_beta_inv = inv_sympd(Sigma_beta);
   arma::mat Sigma_beta_chol = chol(Sigma_beta);
 
-  // default mu tuning parameter
-  double mu_tune_tmp = 1.0;
-  if (params.containsElementNamed("mu_tune")) {
-    mu_tune_tmp = as<double>(params["mu_tune"]);
+  bool sample_Sigma_beta = true;
+  if (params.containsElementNamed("sample_Sigma_beta")) {
+    sample_Sigma_beta = as<bool>(params["sample_Sigma_beta"]);
   }
+
+  // // default mu tuning parameter
+  // double mu_tune_tmp = 1.0;
+  // if (params.containsElementNamed("mu_tune")) {
+  //   mu_tune_tmp = as<double>(params["mu_tune"]);
+  // }
   // default beta tuning parameter
   arma::vec lambda_beta_tune(d, arma::fill::ones);
   lambda_beta_tune *= 1.0 / pow(3.0, 0.8);
@@ -141,21 +175,21 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // Default for mu
   //
 
-  arma::vec mu(d);
-  for (int j=0; j<d; j++) {
-    mu(j) = R::rnorm(mu_mu, sigma_mu);
-  }
-  if (params.containsElementNamed("mu")) {
-    mu = as<vec>(params["mu"]);
-  }
-  bool sample_mu = true;
-  if (params.containsElementNamed("sample_mu")) {
-    sample_mu = as<bool>(params["sample_mu"]);
-  }
-  arma::mat mu_mat(N, d, arma::fill::zeros);
-  for (int i=0; i<N; i++) {
-    mu_mat.row(i) = mu.t();
-  }
+  // arma::vec mu(d);
+  // for (int j=0; j<d; j++) {
+  //   mu(j) = R::rnorm(mu_mu, sigma_mu);
+  // }
+  // if (params.containsElementNamed("mu")) {
+  //   mu = as<vec>(params["mu"]);
+  // }
+  // bool sample_mu = true;
+  // if (params.containsElementNamed("sample_mu")) {
+  //   sample_mu = as<bool>(params["sample_mu"]);
+  // }
+  // arma::mat mu_mat(N, d, arma::fill::zeros);
+  // for (int i=0; i<N; i++) {
+  //   mu_mat.row(i) = mu.t();
+  // }
 
   //
   // Default for beta
@@ -173,20 +207,23 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     sample_beta = as<bool>(params["sample_beta"]);
   }
 
-  arma::mat alpha = exp(mu_mat + Xbs * beta);
+  // arma::mat alpha = exp(mu_mat + Xbs * beta);
+  arma::mat alpha = exp(Xbs * beta);
 
   // setup save variables
   int n_save = n_mcmc / n_thin;
-  arma::mat mu_save(n_save, d, arma::fill::zeros);
+  // arma::mat mu_save(n_save, d, arma::fill::zeros);
   arma::cube alpha_save(n_save, N, d, arma::fill::zeros);
   arma::cube beta_save(n_save, df, d, arma::fill::zeros);
+  arma::mat mu_beta_save(n_save, df, arma::fill::zeros);
+  arma::cube Sigma_beta_save(n_save, df, df, arma::fill::zeros);
 
   // initialize tuning
 
-  arma::vec mu_accept(d, arma::fill::zeros);
-  arma::vec mu_accept_batch(d, arma::fill::zeros);
-  arma::vec mu_tune(d, arma::fill::ones);
-  mu_tune *= mu_tune_tmp;
+  // arma::vec mu_accept(d, arma::fill::zeros);
+  // arma::vec mu_accept_batch(d, arma::fill::zeros);
+  // arma::vec mu_tune(d, arma::fill::ones);
+  // mu_tune *= mu_tune_tmp;
   arma::vec beta_accept(d, arma::fill::zeros);
   arma::vec beta_accept_batch(d, arma::fill::zeros);
   arma::cube beta_batch(50, df, d, arma::fill::zeros);
@@ -223,36 +260,36 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
 
     Rcpp::checkUserInterrupt();
 
+    // //
+    // // Sample mu - MH
+    // //
     //
-    // Sample mu - MH
-    //
-
-    if (sample_mu) {
-      for (int j=0; j<d; j++) {
-        arma::vec mu_star = mu;
-        mu_star(j) += R::rnorm(0.0, mu_tune(j));
-        arma::mat mu_mat_star = mu_mat;
-        for (int i=0; i<N; i++) {
-          mu_mat_star.row(i) = mu_star.t();
-        }
-        arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
-        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
-          R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
-        double mh2 = LL_DM(alpha, Y, N, d, count) +
-          R::dnorm4(mu(j), mu_mu, sigma_mu, true);
-        double mh = exp(mh1 - mh2);
-        if (mh > R::runif(0, 1.0)) {
-          mu = mu_star;
-          mu_mat = mu_mat_star;
-          alpha = alpha_star;
-          mu_accept_batch(j) += 1.0 / 50.0;
-        }
-      }
-      // update tuning
-      if ((k+1) % 50 == 0){
-        updateTuningVec(k, mu_accept_batch, mu_tune);
-      }
-    }
+    // if (sample_mu) {
+    //   for (int j=0; j<d; j++) {
+    //     arma::vec mu_star = mu;
+    //     mu_star(j) += R::rnorm(0.0, mu_tune(j));
+    //     arma::mat mu_mat_star = mu_mat;
+    //     for (int i=0; i<N; i++) {
+    //       mu_mat_star.row(i) = mu_star.t();
+    //     }
+    //     arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
+    //     double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+    //       R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
+    //     double mh2 = LL_DM(alpha, Y, N, d, count) +
+    //       R::dnorm4(mu(j), mu_mu, sigma_mu, true);
+    //     double mh = exp(mh1 - mh2);
+    //     if (mh > R::runif(0, 1.0)) {
+    //       mu = mu_star;
+    //       mu_mat = mu_mat_star;
+    //       alpha = alpha_star;
+    //       mu_accept_batch(j) += 1.0 / 50.0;
+    //     }
+    //   }
+    //   // update tuning
+    //   if ((k+1) % 50 == 0){
+    //     updateTuningVec(k, mu_accept_batch, mu_tune);
+    //   }
+    // }
 
     //
     // Sample beta - block MH
@@ -264,7 +301,8 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
         beta_star.col(j) +=
           mvrnormArmaVecChol(zero_df,
                              lambda_beta_tune(j) * Sigma_beta_tune_chol.slice(j));
-        arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
+        // arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
+        arma::mat alpha_star = exp(Xbs * beta_star);
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
         double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -284,6 +322,34 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
                           Sigma_beta_tune_chol);
       }
     }
+
+    //
+    // sample mu_beta
+    //
+
+    if (sample_mu_beta) {
+      arma::mat A = Sigma_beta_0_inv + d * Sigma_beta_inv;
+      arma::vec b = Sigma_beta_0_inv * mu_beta_0;
+      for (int j=0; j<d; j++) {
+        b += Sigma_beta_inv * beta.col(j);
+      }
+      mu_beta = rMVNArma(A, b);
+    }
+
+    //
+    // sample Sigma_beta
+    //
+
+    if (sample_Sigma_beta) {
+      arma::mat tmp(df, df, arma::fill::zeros);
+      for (int j=0; j<d; j++) {
+        tmp += (beta.col(j) - mu_beta) * (beta.col(j) - mu_beta).t();
+      }
+      Sigma_beta_inv = rWishartArmaMat(d + nu, inv_sympd(tmp + nu * S));
+      Sigma_beta = inv_sympd(Sigma_beta_inv);
+      Sigma_beta_chol = chol(Sigma_beta);
+    }
+
     // end of MCMC iteration
   }
   // end of MCMC adaptation
@@ -312,32 +378,32 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
 
     Rcpp::checkUserInterrupt();
 
+    // //
+    // // Sample mu - MH
+    // //
     //
-    // Sample mu - MH
-    //
-
-    if (sample_mu) {
-      for (int j=0; j<d; j++) {
-        arma::vec mu_star = mu;
-        mu_star(j) += R::rnorm(0.0, mu_tune(j));
-        arma::mat mu_mat_star = mu_mat;
-        for (int i=0; i<N; i++) {
-          mu_mat_star.row(i) = mu_star.t();
-        }
-        arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
-        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
-          R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
-        double mh2 = LL_DM(alpha, Y, N, d, count) +
-          R::dnorm4(mu(j), mu_mu, sigma_mu, true);
-        double mh = exp(mh1 - mh2);
-        if (mh > R::runif(0, 1.0)) {
-          mu = mu_star;
-          mu_mat = mu_mat_star;
-          alpha = alpha_star;
-          mu_accept(j) += 1.0 / n_mcmc;
-        }
-      }
-    }
+    // if (sample_mu) {
+    //   for (int j=0; j<d; j++) {
+    //     arma::vec mu_star = mu;
+    //     mu_star(j) += R::rnorm(0.0, mu_tune(j));
+    //     arma::mat mu_mat_star = mu_mat;
+    //     for (int i=0; i<N; i++) {
+    //       mu_mat_star.row(i) = mu_star.t();
+    //     }
+    //     arma::mat alpha_star = exp(mu_mat_star + Xbs * beta);
+    //     double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+    //       R::dnorm4(mu_star(j), mu_mu, sigma_mu, true);
+    //     double mh2 = LL_DM(alpha, Y, N, d, count) +
+    //       R::dnorm4(mu(j), mu_mu, sigma_mu, true);
+    //     double mh = exp(mh1 - mh2);
+    //     if (mh > R::runif(0, 1.0)) {
+    //       mu = mu_star;
+    //       mu_mat = mu_mat_star;
+    //       alpha = alpha_star;
+    //       mu_accept(j) += 1.0 / n_mcmc;
+    //     }
+    //   }
+    // }
 
     //
     // Sample beta - block MH
@@ -350,7 +416,8 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
           mvrnormArmaVecChol(zero_df,
                              lambda_beta_tune(j) * Sigma_beta_tune_chol.slice(j));
 
-        arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
+        // arma::mat alpha_star = exp(mu_mat + Xbs * beta_star);
+        arma::mat alpha_star = exp(Xbs * beta_star);
         double mh1 = LL_DM(alpha_star, Y, N, d, count) +
           dMVN(beta_star.col(j), mu_beta, Sigma_beta_chol);
         double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -364,6 +431,32 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
       }
     }
 
+    //
+    // sample mu_beta
+    //
+
+    if (sample_mu_beta) {
+      arma::mat A = Sigma_beta_0_inv + d * Sigma_beta_inv;
+      arma::vec b = Sigma_beta_0_inv * mu_beta_0;
+      for (int j=0; j<d; j++) {
+        b += Sigma_beta_inv * beta.col(j);
+      }
+      mu_beta = rMVNArma(A, b);
+    }
+
+    //
+    // sample Sigma_beta
+    //
+
+    if (sample_Sigma_beta) {
+      arma::mat tmp(df, df, arma::fill::zeros);
+      for (int j=0; j<d; j++) {
+        tmp += (beta.col(j) - mu_beta) * (beta.col(j) - mu_beta).t();
+      }
+      Sigma_beta_inv = rWishartArmaMat(d + nu, inv_sympd(tmp + nu * S));
+      Sigma_beta = inv_sympd(Sigma_beta_inv);
+      Sigma_beta_chol = chol(Sigma_beta);
+    }
 
     //
     // save variables
@@ -371,13 +464,13 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
 
     if ((k + 1) % n_thin == 0) {
       int save_idx = (k+1)/n_thin-1;
-      mu_save.row(save_idx) = mu.t();
+      // mu_save.row(save_idx) = mu.t();
       alpha_save.subcube(span(save_idx), span(), span()) = alpha;
       beta_save.subcube(span(save_idx), span(), span()) = beta;
-      // tau2_save.row(save_idx) = tau2.t();
-      // lambda_tau2_save.row(save_idx) = lambda_tau2.t();
-      // s2_tau2_save(save_idx) = s2_tau2;
+      mu_beta_save.row(save_idx) = mu_beta.t();
+      Sigma_beta_save.subcube(span(save_idx), span(), span()) = Sigma_beta;
     }
+
     // end of MCMC iteration
   }
   // end of MCMC fitting
@@ -386,30 +479,26 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // print accpetance rates
   // set up output messages
   file_out.open(file_name, std::ios_base::app);
-  if (sample_mu) {
-    file_out << "Average acceptance rate for mu  = " << mean(mu_accept) <<
-      " for chain " << n_chain << "\n";
-  }
+  // if (sample_mu) {
+  //   file_out << "Average acceptance rate for mu  = " << mean(mu_accept) <<
+  //     " for chain " << n_chain << "\n";
+  // }
 
     if (sample_beta) {
     file_out << "Average acceptance rate for beta  = " << mean(beta_accept) <<
       " for chain " << n_chain << "\n";
   }
-  // if (sample_tau2) {
-  //   file_out << "Average acceptance rate for tau2  = " << mean(tau2_accept) <<
-  //     " for chain " << n_chain << "\n";
-  // }
+
   // close output file
   file_out.close();
 
   // output results
 
   return Rcpp::List::create(
-    _["mu"] = mu_save,
+    // _["mu"] = mu_save,
     _["alpha"] = alpha_save,
-    _["beta"] = beta_save);
-  // _["tau2"] = tau2_save,
-  // _["lambda_tau2"] = lambda_tau2_save,
-  // _["s2_tau2"] = s2_tau2_save);
+    _["beta"] = beta_save,
+    _["mu_beta"] = mu_beta_save,
+    _["Sigma_beta"] = Sigma_beta_save);
 
 }
