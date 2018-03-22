@@ -1,0 +1,60 @@
+---
+title: "To-Do"
+author: "John Tipton"
+date: "2/17/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project To do 
+
+## Add in residual error
+    
+$$
+log(\alpha_{ij}) \sim \operatorname{N}(\mathbf{X}_i \boldsymbol{\beta}_{b_j}, \sigma^2_j) 
+$$
+
+or 
+
+$$
+log(\boldsymbol{\alpha}_i) \sim \operatorname{N}(\mathbf{X}_i \boldsymbol{\beta}, \boldsymbol{\Sigma}) \\
+\boldsymbol{\Sigma} \sim \operatorname{inverse-Wishart}(\nu, \mathbf{S}) \\
+$$
+
+The previous model is difficult because the full conditional distribution $[\boldsymbol{\Sigma}| \cdot]$ does not have an analytic form and the computationally efficient inverse-Wishart prior (compared to LKJ prior which scales poorly with dimension). Instead, we represent the model as
+
+$$
+log(\boldsymbol{\alpha}_i) = \mathbf{X}_i \boldsymbol{\beta} + \boldsymbol{\varepsilon}_i \\
+\boldsymbol{\varepsilon}_i \sim \operatorname{N}(\mathbf{0}, \boldsymbol{\Sigma})  \\
+\boldsymbol{\Sigma} \sim \operatorname{inverse-Wishart}(\nu, \mathbf{S}) \\
+$$
+## Hierarchical pooling for basis models
+$$
+\boldsymbol{\beta}_j \sim \operatorname{N}(\boldsymbol{\mu}_\beta, \boldsymbol{\Sigma}_\beta) \\
+\boldsymbol{\mu}_\beta \sim \operatorname{N}(\boldsymbol{\mu}_{\beta_0}, \boldsymbol{\Sigma}_{\beta_0}) \\
+\boldsymbol{\Sigma}_\beta \sim \operatorname{inverse-Wishart}(\nu, \mathbf{S}) \\
+$$
+
+## Clustering model
+- How to integrate out latent species indicator?
+    - Add in residual error?
+    
+$$
+log(\alpha_{ij}) \sim \operatorname{N}(\mathbf{X}_i \boldsymbol{\beta}_{b_j}, \sigma^2_j) 
+$$
+
+then integrate out cluster membership indicator $b_j$.
+- Mixture of data types
+
+
+## Generalized Dirichlet Multinomial model
+Consider the Dirichlet-Multinomial model which can be generalized.
+
+## Non-negative Matrix Factorization methods?
+
+
+
+

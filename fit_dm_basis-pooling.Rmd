@@ -1,0 +1,398 @@
+---
+title: "Test DM-Basis"
+author: "John Tipton"
+date: "6/8/2017"
+output: html_document
+---
+
+
+```{r, warning=FALSE, message=FALSE}
+set.seed(11)
+library(BayesComposition)
+library(knitr)
+library(ggplot2)
+library(mvnfast)
+N <- 1000
+N_obs <- N - 200
+df <- 6
+degree <- 3
+## Number of species
+d <- 10
+## Number of clusters
+K <- 10
+
+```
+
+## dirichlet-multinomial simulation using basis with overdispersion
+
+```{r}
+set.seed(121)
+
+X <- runif(N)
+library(myFunctions)
+knots <- seq(min(X[1:N_obs]), max(X[1:N_obs]),
+             length=df-degree+2)[-c(1, df-degree+2)]
+Xbs <- bs_cpp(X, df, knots, degree, TRUE, c(min(X), max(X)))
+## regression mean
+mu_beta <- rnorm(df+1)
+## Inverse Wishart prior covariance for beta
+Sigma_beta <- 2*diag(df+1)
+
+alpha_phi <- 1
+# mu <- rnorm(d, 0, 1)
+
+
+beta <- t(rmvn(d, mu_beta, Sigma_beta))
+## Dirichlet process simulation
+# beta <- t(rmvn(K, mu_beta, Sigma_beta))
+# phi_tilde <- rbeta(K-1, 1, alpha_phi)
+# phi <- broken_stick(phi_tilde)
+
+# b <- sample(1:K, d, prob=phi, replace=TRUE)
+
+## Fixed cluster size simulation
+# b <- sample(1:K, N, replace=TRUE)
+alpha <- matrix(0, N, d)
+for (i in 1:N){
+  # alpha[i, ] <- exp(mu + Xbs[i, ] %*% beta[, b])
+    alpha[i, ] <- exp(Xbs[i, ] %*% beta)
+}
+
+y <- matrix(0, N, d)
+N_i <- rpois(N, 100)
+
+for (i in 1:N) {
+  # alpha[i, ] <- exp(mu + zeta[i, ])
+  ## simulate from Dirichlet-Multinomial distribution
+  tmp <- rgamma(d, alpha[i, ], 1)
+  p <- tmp / sum(tmp)
+  y[i, ] <- rmultinom(1, N_i[i], p)
+}
+```
+
+
+```{r}
+y_dens <- matrix(0, N, d)
+p_alpha <- matrix(0, N, d)
+for (i in 1:N) {
+  y_dens[i, ] <- y[i, ] / sum(y[i, ])
+  # p_alpha[i, ] <- exp(mu + Xbs[i, ] %*% beta[, b]) / sum(exp(mu + Xbs[i, ] %*% beta[, b]))
+  p_alpha[i, ] <- exp(Xbs[i, ] %*% beta) / sum(exp(Xbs[i, ] %*% beta))
+}
+
+simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
+                          count=c(y_dens),
+                          depth=rep(X, times=d), alpha=c(p_alpha))
+
+gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species,
+                                 group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
+
+gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species,
+                                 group=species)) +
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("Simulated response vs. depth by species") +
+  geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
+  facet_wrap( ~ species, ncol = 4)
+multiplot(gsim1, gsim2, cols=1)
+```
+
+
+
+```{r}
+params <- list(n_adapt=1000, n_mcmc=1000, n_thin=10, df=6, degree=3, 
+               likelihood = "dirichlet-multinomial", 
+               mu_beta=rep(0, df), Sigma_beta=5*diag(df), 
+               sample_mu_beta=TRUE, 
+               sample_Sigma_beta=TRUE,
+               mu = rep(0, d),
+               sample_mu = FALSE,               
+               function_type = "basis", n_chains=4, n_cores=4)
+progress_directory <- "~/compositional-test/"
+progress_file <- "dm-basis.txt"
+save_directory <- "~/compositional-test/"
+save_file <- "dm-basis.RData"
+
+if (file.exists(paste0(save_directory, save_file))) {
+  load(paste0(save_directory, save_file))
+} else {
+  ## potentially long running MCMC code
+  out <- fit_compositional_data(y=y[1:N_obs, ], X=X[1:N_obs], params=params, 
+                                progress_directory = "~/compositional-test/",
+                                progress_file = "dm-basis.txt", 
+                                save_directory = "~/compositional-test/",
+                                save_file = "dm-basis.RData")
+}
+```
+
+
+```{r}
+## extract posterior samples
+samples <- extract_compositional_samples(out)
+# mu_post <- samples$mu
+alpha_post <- samples$alpha
+beta_post <- samples$beta 
+mu_beta_post <- samples$mu_beta
+Sigma_beta_post <- samples$Sigma_beta
+```
+
+
+
+```{r}
+Rhat <- make_gelman_rubin(out)
+layout(matrix(1:9, 3, 3))
+hist(Rhat[grepl("alpha", names(Rhat))], main = "Rhat for alpha")
+hist(Rhat[grepl("beta", names(Rhat))], main = "Rhat for beta")
+hist(Rhat[grepl("mu_beta", names(Rhat))], main = "Rhat for mu_beta")
+hist(Rhat[grepl("Sigma_beta", names(Rhat))], main = "Rhat for Sigma_beta")
+hist(Rhat, main="All parameters")
+Rhat[!is.finite(Rhat)] <- NA
+max(unlist(na.omit(Rhat)))
+```
+
+```{r, eval=TRUE}
+# matplot(mu_post, type='l')
+```
+
+
+```{r}
+## 
+## Posterior plots
+##
+layout(matrix(1:4, 2, 2))
+matplot(beta_post[, , 1], type='l')
+# abline(h=beta[, 1], col='red', lwd=2)
+matplot(beta_post[, , 2], type='l')
+# abline(h=beta[, 2], col='red', lwd=2)
+matplot(beta_post[, , 3], type='l')
+# abline(h=beta[, 3], col='red', lwd=2)
+matplot(beta_post[, , 4], type='l')
+# abline(h=beta[, 4], col='red', lwd=2)
+```
+
+```{r}
+layout(matrix(1:4, 2, 2))
+matplot(alpha_post[, 1, ], type='l')
+# abline(h=alpha[1, ])
+matplot(alpha_post[, 2, ], type='l')
+# abline(h=alpha[2, ])
+matplot(alpha_post[, 3, ], type='l')
+# abline(h=alpha[3, ])
+matplot(alpha_post[, 4, ], type='l')
+# abline(h=alpha[4, ])
+```
+
+```{r}
+layout(matrix(1:4, 2, 2))
+matplot(mu_beta_post, type='l')
+matplot(Sigma_beta_post[, 1, ], type='l')
+matplot(Sigma_beta_post[, 2, ], type='l')
+matplot(Sigma_beta_post[, 3, ], type='l')
+```
+
+
+
+```{r}
+alpha_post_mean <- apply(alpha_post, c(2, 3), mean)
+p_alpha <- alpha_post_mean
+
+y_prop <- y
+for (i in 1:N_obs) {
+  ## normalize to sum-to-one constraint
+  y_prop[i, ] <- y[i, ] / sum(y[i, ])
+  p_alpha[i, ] <- p_alpha[i, ] / sum(p_alpha[i, ])
+}
+
+fitPlotData <- data.frame(species=as.factor(rep(1:d, each=N_obs)), 
+                          count=c(y_prop[1:N_obs, ]), 
+                          depth=rep(X[1:N_obs], times=d), 
+                          alpha=c(p_alpha))
+
+g1_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("MVGP vs. depth") + 
+  geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25)
+
+g2_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("MVGP vs. depth by species") + 
+  geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25) + 
+  facet_wrap( ~ species, ncol = 4)
+multiplot(g1_post, g2_post, gsim1, gsim2, cols=2)
+```
+
+```{r}
+pred <- predictRcppDMBasis(dat$y_pred, mu_X=mean(dat$X), s2_X=var(dat$X), 
+                           min_X=min(dat$X), max_X=max(dat$X),
+                           params=params, samples=samples, 
+                           file_name="DM-predict.txt")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+## sorted to increase
+idx <- order(dat$X_pred)
+n_samples <- length(pred$X[, 1])
+X_ci <- apply(pred$X[, idx], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ]
+sim.df <- data.frame(Covariate=c(X_ci),
+                     Observation=factor(rep((1:length(dat$X_pred)),
+                                            each=n_samples*0.95)),
+                     truth=rep(dat$X_pred[idx],
+                               each=n_samples*0.95))
+
+ggplot(sim.df, aes(Observation, Covariate)) +
+  geom_violin(position="identity") +
+  geom_point(aes(Observation, truth), color="red") +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved July Temperature")
+```
+
+
+
+
+
+
+```{r}
+X_train <- dat$X
+X_test <- dat$X_pred
+y_train <- dat$y
+y_train_prop <- y_train
+y_test <- dat$y_pred
+y_test_prop <- y_test
+for (i in 1:N) {
+  y_train_prop[i, ] <- y_train_prop[i, ] / sum(y_train_prop[i, ])
+}
+for (i in 1:N_pred) {
+  y_test_prop[i, ] <- y_test_prop[i, ] / sum(y_test_prop[i, ])
+}
+colnames(y_train_prop) <- letters[1:d]
+colnames(y_test_prop) <- letters[1:d]
+
+##
+## evaluate predictive ability
+##
+
+Rcpp::sourceCpp("~/testate/functions/makeCRPS.cpp")
+CRPS_GAM <- makeCRPS(pred$X, X_test, n_samples)
+X_mean <- apply(pred$X, 2, mean)
+MSPE_GAM <- (X_mean - X_test)^2
+MAE_GAM <- abs(apply(pred$X, 2, median) -  X_test)
+X_025 <- apply(pred$X, 2, quantile, prob = 0.025)
+X_975 <- apply(pred$X, 2, quantile, prob = 0.975)
+coverage_GAM <- (X_test >= X_025) & (X_test <= X_975)
+
+## WA reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_train_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modWA <- rioja::WA(y_train_prop[, - zeros_idx], X_train)
+  predWA <- predict(modWA, y_test_prop[, - zeros_idx], sse=TRUE, nboot=1000)
+} else {
+  ## no data to subset
+  modWA <- rioja::WA(y_train_prop, X_train)
+  predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)      
+}
+source("~/testate/functions/makeCRPSGauss.R")
+CRPS_WA <- makeCRPSGauss(predWA$fit[, 1], sqrt(predWA$v1.boot[, 1]), X_test)
+MAE_WA <- abs(predWA$fit[, 1] - X_test)
+MSPE_WA <- (predWA$fit[, 1] - X_test)^2
+coverage_WA <- (X_test >= 
+                  (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]))) & 
+  (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1])))
+
+
+## MLRC reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_train_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modMLRC <- rioja::MLRC(y_train_prop[, - zeros_idx], X_train)
+  predMLRC <- predict(modMLRC, y_test_prop[, - zeros_idx],
+                      sse=TRUE, nboot=1000)
+} else {
+  modMLRC <- rioja::MLRC(y_train_prop, X_train)
+  predMLRC <- predict(modMLRC, y_test_prop, sse=TRUE, nboot=1000)
+}
+source("~/testate/functions/makeCRPSGauss.R")
+CRPS_MLRC <- makeCRPSGauss(predMLRC$fit[, 1], sqrt(predMLRC$v1.boot[, 1]),
+                      X_test)
+MSPE_MLRC <- (predMLRC$fit[, 1] - X_test)^2
+MAE_MLRC <- abs(predMLRC$fit[, 1] - X_test)
+coverage_MLRC <- ( X_test >= (predMLRC$fit[, 1] - 2*sqrt(predMLRC$v1.boot[, 1]))) & 
+  (X_test <= (predMLRC$fit[, 1] + 2 * sqrt(predMLRC$v1.boot[, 1])))
+
+## Modern analogue technique
+modMAT <- mat(y_train, X_train)
+predMAT <- predict(modMAT, y_test, bootstrap=TRUE, n.boot=1000)
+CRPS_MAT <- makeCRPSGauss(
+  apply(predMAT$predictions$model$predicted, 2, mean), 
+  apply(predMAT$predictions$model$predicted, 2, sd), X_test)
+MSPE_MAT <- (apply(predMAT$predictions$model$predicted, 2, mean) - X_test)^2
+MAE_MAT <- abs(  apply(predMAT$predictions$model$predicted, 2, median) - X_test)
+coverage_MAT <- ( X_test >= (apply(predMAT$predictions$model$predicted, 2, mean) -
+                                2*  apply(predMAT$predictions$model$predicted, 2, sd)) & 
+  (X_test <= (apply(predMAT$predictions$model$predicted, 2, mean) +
+                                2*  apply(predMAT$predictions$model$predicted, 2, sd))))
+
+
+## GJAM model fit
+idx_hold <- (N+1):(N+N_pred)
+Xdf <- data.frame(x=c(X_train, X_test))
+Xdf$x[idx_hold] <- NA
+ydf <- data.frame(as.matrix(rbind(y_train, y_test)))
+colnames(ydf) <- paste("y", 1:dim(y_train)[2], sep="")
+ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y_train)[2]), 
+           PREDICTX=TRUE)
+## fit second order polynomial model
+out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
+xMu  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
+xSd  <- out$prediction$xpredSd[idx_hold, 2]  
+
+##
+source("~/testate/functions/makeCRPSGauss.R")
+CRPS_GJAM <- makeCRPSGauss(xMu, xSd, X_test)
+MSPE_GJAM <- (xMu - X_test)^2
+MAE_GJAM <- abs(xMu - X_test)
+X_025 <- xMu - 2*xSd
+X_975 <- xMu + 2*xSd
+coverage_GJAM <- (X_test >= X_025) & (X_test <= X_975)
+
+```
+
+
+
+```{r}
+CRPS_out <- cbind(CRPS_GAM, CRPS_WA, CRPS_MAT, CRPS_MLRC, CRPS_GJAM)
+MSPE_out <- cbind(MSPE_GAM, MSPE_WA, MSPE_MAT, MSPE_MLRC, MSPE_GJAM)
+MAE_out <- cbind(MAE_GAM, MAE_WA, MAE_MAT, MAE_MLRC, MAE_GJAM)
+coverage_out <- cbind(coverage_GAM, coverage_WA, coverage_MAT, coverage_MLRC,
+                      coverage_GJAM)
+colnames(CRPS_out) <- c("GAM", "WA", "MAT", "MLRC", "GJAM")
+colnames(MAE_out) <- c("GAM", "WA", "MAT", "MLRC", "GJAM")
+colnames(MSPE_out) <- c("GAM", "WA", "MAT", "MLRC", "GJAM")
+colnames(coverage_out) <- c("GAM", "WA", "MAT", "MLRC", "GJAM")
+
+CRPS <- data.frame(t(apply(CRPS_out, 2, mean)))
+MSPE <- data.frame(t(apply(MSPE_out, 2, mean)))
+MAE <- data.frame(t(apply(MAE_out, 2, mean)))
+coverage <- data.frame(100/(N_pred)*t(apply(coverage_out, 2, sum)))
+
+sim_results <- rbind(CRPS, MSPE, MAE, coverage)
+rownames(sim_results) <- c("CRPS", "MSPE", "MAE", "95% CI coverage rates")
+# print(xtable(sim_results, digits=4), file="results/sim-dm.tex",
+#       floating=FALSE)
+```
+
+```{r}
+kable(sim_results)
+```
