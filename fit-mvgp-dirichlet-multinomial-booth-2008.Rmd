@@ -455,7 +455,7 @@ fileToLoad <- read.csv("~/Documents/connoR/Caribou/cariboucounts.csv")
 
 y_recon <- fileToLoad[,10:60]
 
-#source("~/Documents/connoR/testate/data/join-testate-caribou.R")
+source("~/Documents/connoR/testate/data/join-testate-caribou.R")
 
 N_recon_full <- sum(y_recon)
 
@@ -626,6 +626,7 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
   scale_y_reverse()
 
+ggsave("caribou_means_booth2008_fullmodel.png")
 
 
 ```
@@ -633,7 +634,7 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
 
 
 ```{r}
-ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
+ggplot(subset(caribou.df,  Model %in% c("MVGP", "WA", "RF")), aes(Observation, Covariate, color=Model)) +
   scale_x_discrete(breaks=seq(5, 25, 5)) + 
   labs(x="Observation", y="Unobserved Water Depth") +
   stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
@@ -641,10 +642,194 @@ ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
                  fun.ymax = function(z) {quantile(z, 0.975)},
                  geom = "ribbon", aes(Observation, Covariate,
                                       group=Model, color=Model, fill=Model), alpha=0.25) +
-  ylim(-10, 60)
+  ylim(-10, 60) + scale_y_reverse()
+
+ggsave("caribou_withUnc.png")
 ```
 
 
 
 
+Sidney reconstructions
+
+
+```{r}
+fileToLoad <- read.csv("~/Documents/connoR/Caribou/data/sidneycounts.csv")
+
+y_recon <- fileToLoad[,4:126]
+
+#source("~/Documents/connoR/testate/data/join-testate-sidney.R")
+
+N_recon_full <- sum(y_recon)
+
+idx1 <- colnames(y) %in% names(y_recon)
+# names(y_recon)[!idx1]
+# names(y_cal)[!idx2]
+
+## add in any species in calibation data not in reconstruction data
+for (i in colnames(y)[!idx1]){
+  y_recon[, i] <- rep(0, dim(y_recon)[1])
+}
+
+idx2 <- names(y_recon) %in% colnames(y)
+## remove species in reconstruction data not in calibration data
+for (i in names(y_recon)[!idx2]){
+  y_recon[, i] <- NULL
+}
+
+y_recon <- y_recon[, order(colnames(y_recon))]
+
+## check the names and orderings
+all.equal(colnames(y), colnames(y_recon))
+
+## Note: we are reducing the testate counts by about 25%...
+N_recon_reduced <- sum(y_recon)
+N_recon_full - N_recon_reduced
+```
+
+
+```{r}
+pred <- predictRcppDMMVGP(as.matrix(y_recon), mu_X=mean(X), s2_X=var(X), 
+                           min_X=min(X), max_X=max(X),
+                           params=params, samples=samples, 
+                           file_name="DM-predict.txt")
+
+```
+
+```{r}
+n_samples <- length(pred$X[, 1])
+N_pred <- length(pred$X[1, ])
+
+y_prop <- y
+y_recon_prop <- y_recon
+for (i in 1:N) {
+  y_prop[i, ] <- y_prop[i, ] / sum(y_prop[i, ])
+}
+for (i in 1:N_pred) {
+  y_recon_prop[i, ] <- y_recon_prop[i, ] / sum(y_recon_prop[i, ])
+}
+
+## WA reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modWA <- rioja::WA(y_prop[, - zeros_idx], X)
+  predWA <- predict(modWA, y_recon_prop[, - zeros_idx], sse=TRUE, nboot=1000)
+} else {
+  ## no data to subset
+  modWA <- rioja::WA(y_prop, X)
+  predWA <- predict(modWA, y_recon_prop, sse=TRUE, nboot=1000)      
+}
+
+pred_mu_WA <- predWA$fit[, 1]
+pred_sd_WA <- sqrt(predWA$v1.boot[, 1])
+
+## MLRC reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modMLRC <- rioja::MLRC(y_prop[, - zeros_idx], X)
+  predMLRC <- predict(modMLRC, y_recon_prop[, - zeros_idx],
+                      sse=TRUE, nboot=1000)
+} else {
+  modMLRC <- rioja::MLRC(y_prop, X)
+  predMLRC <- predict(modMLRC, y_recon_prop, sse=TRUE, nboot=1000)
+}
+
+pred_mu_MLRC <- predMLRC$fit[, 1]
+pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1])
+
+## Modern analogue technique
+modMAT <- mat(y, X)
+predMAT <- predict(modMAT, y_recon, bootstrap=TRUE, n.boot=1000)
+
+pred_mu_MAT <- apply(predMAT$predictions$model$predicted, 2, mean)
+pred_sd_MAT <- apply(predMAT$predictions$model$predicted, 2, sd)  
+
+# ## GJAM model fit
+# idx_hold <- (N+1):(N+N_pred)
+# Xdf <- data.frame(x=c(X, rep(NA, N_pred)))
+# Xdf$x[idx_hold] <- NA
+# ydf <- data.frame(as.matrix(rbind(y, y_recon)))
+# colnames(ydf) <- paste("y", 1:dim(y)[2], sep="")
+# ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y)[2]),
+#            PREDICTX=TRUE)
+# ## fit second order polynomial model
+# out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
+# 
+# pred_mu_GJAM  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
+# pred_sd_GJAM  <- out$prediction$xpredSd[idx_hold, 2]
+
+## Random Forest
+library(randomForest)
+train <- data.frame(y=X, as.matrix(y))
+test <- data.frame(y_recon)
+n_samples <- length(pred$X[, 1])
+rf <- randomForest(y ~ ., data = train, ntree=n_samples)
+preds_rf <- predict(rf, test, predict.all=TRUE)$individual
+
+```
+
+
+```{r}
+n_samples <- length(pred$X[, 1])
+N_pred <- length(pred$X[1, ])
+
+preds_WA <- matrix(0, n_samples, N_pred)
+preds_MLRC <- matrix(0, n_samples, N_pred)
+preds_MAT <- matrix(0, n_samples, N_pred)
+# preds_GJAM <- matrix(0, n_samples, d)
+for (i in 1:N_pred) {
+  preds_WA[, i] <- rnorm(n_samples, pred_mu_WA[i], pred_sd_WA[i])
+  preds_MLRC[, i] <- rnorm(n_samples, pred_mu_MLRC[i], pred_sd_MLRC[i])
+  preds_MAT[, i] <- rnorm(n_samples, pred_mu_MAT[i], pred_sd_MAT[i])
+  # preds_GJAM[, j] <- rnorm(n_samples, pred_mu_GJAM, pred_sd_GJAM)
+}
+X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+          # apply(preds_GJAM, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ])
+          
+sidney.df <- data.frame(
+  Covariate=c(X_ci),
+  Observation=factor(rep((1:N_pred), each=5*n_samples*0.95)), 
+  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF"), each=n_samples*0.95)
+)
+
+ggplot(sidney.df, aes(Observation, Covariate, color=Model)) +
+  geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(5, 310, 10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + scale_y_reverse()
+
+ggsave("sidney_recons.png")
+
+ggplot(sidney.df, aes(Observation, Covariate, color=Model)) +
+  #geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+  scale_y_reverse()
+
+ggsave("sidney_means_booth2008_fullmodel.png")
+
+
+```
+
+
+```{r}
+ggplot(subset(sidney.df,  Model %in% c("MVGP", "WA", "RF")), aes(Observation, Covariate, color=Model)) +
+  scale_x_discrete(breaks=seq(5, 25, 5)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Observation, Covariate,
+                                      group=Model, color=Model, fill=Model), alpha=0.25) +
+  ylim(-10, 60) + scale_y_reverse()
+
+ggsave("sidney_withUnc_booth2008.png")
+```
 
