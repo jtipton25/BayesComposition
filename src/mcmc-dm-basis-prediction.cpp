@@ -31,7 +31,7 @@ using namespace arma;
 
 Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const double& mu_X,
-                  const arma::rowvec& mu_current,
+                  // const arma::rowvec& mu_current,
                   const arma::mat& beta_current,
                   const arma::rowvec& alpha_current,
                   const arma::rowvec& y_current,
@@ -72,7 +72,8 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     X_tilde(0) = X_proposal + mu_X;
     arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, true,
                                        rangeX);
-    arma::rowvec alpha_proposal = exp(mu_current + Xbs_proposal * beta_current);
+    // arma::rowvec alpha_proposal = exp(mu_current + Xbs_proposal * beta_current);
+    arma::rowvec alpha_proposal = exp(Xbs_proposal * beta_current);
 
     // calculate log likelihood of proposed value
     double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d,
@@ -168,28 +169,13 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
     n_rep = as<int>(params["n_rep"]);
   }
 
-  // add in option for reference category for mu
-  // this option fixes the first mean parameter at 0
-  // to allow for model identifiability
-  bool mu_reference_category = true;
-  if (params.containsElementNamed("mu_reference_category")) {
-    mu_reference_category = as<bool>(params["mu_reference_category"]);
-  }
-  // add in option for reference category for Sigma
-  // this option fixes the first variance parameter tau at 1
-  // to allow for model identifiability
-  bool Sigma_reference_category = true;
-  if (params.containsElementNamed("Sigma_reference_category")) {
-    Sigma_reference_category = as<bool>(params["Sigma_reference_category"]);
-  }
-
   // set up dimensions
   double N_pred = Y_pred.n_rows;
   double d = Y_pred.n_cols;
 
   // Load MCMC estimated parameters
   // arma::cube alpha = as<arma::cube>(samples["alpha"]);
-  arma::mat mu_fit = as<arma::mat>(samples["mu"]);
+  // arma::mat mu_fit = as<arma::mat>(samples["mu"]);
   arma::cube beta_fit = as<arma::cube>(samples["beta"]);
   int n_samples = beta_fit.n_rows;
   if (beta_fit.n_cols != df) {
@@ -253,13 +239,14 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   // set default, fixed parameters and turn on/off samplers for testing
   //
 
-  arma::vec mu = mu_fit.row(0).t();
-  arma::mat mu_mat(N_pred, d, arma::fill::zeros);
-  for (int i=0; i<N_pred; i++) {
-    mu_mat.row(i) = mu.t();
-  }
+  // arma::vec mu = mu_fit.row(0).t();
+  // arma::mat mu_mat(N_pred, d, arma::fill::zeros);
+  // for (int i=0; i<N_pred; i++) {
+  //   mu_mat.row(i) = mu.t();
+  // }
   arma::mat beta = beta_fit.subcube(0, 0, 0, 0, df-1, d-1);
-  arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
+  // arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
+  arma::mat alpha_pred = exp(Xbs_pred * beta);
 
   // setup save variables
   arma::cube alpha_pred_save(n_samples, N_pred, d, arma::fill::zeros);
@@ -303,17 +290,19 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
 
     // run for 10 iterations per posterior sample to "guarantee" convergence
     for (int j=0; j<n_rep; j++) {
-      arma::vec mu = mu_fit.row(0).t();
-      arma::mat mu_mat(N_pred, d, arma::fill::zeros);
-      for (int i=0; i<N_pred; i++) {
-        mu_mat.row(i) = mu.t();
-      }
+      // arma::vec mu = mu_fit.row(0).t();
+      // arma::mat mu_mat(N_pred, d, arma::fill::zeros);
+      // for (int i=0; i<N_pred; i++) {
+      //   mu_mat.row(i) = mu.t();
+      // }
       beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
-      arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
+      // arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
+      arma::mat alpha_pred = exp(Xbs_pred * beta);
       if (sample_X) {
         for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, mu.t(), beta, alpha_pred.row(i),
+          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, //mu.t(),
+                                     beta, alpha_pred.row(i),
                                      Y_pred.row(i), Xbs_pred.row(i), knots, d,
                                      degree, df, rangeX, count_pred(i), file_name);
           X_pred(i) = as<double>(ess_out["X"]);

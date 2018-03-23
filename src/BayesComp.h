@@ -13,6 +13,7 @@
 #include "mvrnormARMA.h"
 #include "mvrnormARMAChol.h"
 #include "rMVNArma.h"
+#include "rWishart.h"
 #include "seq_lenC.h"
 #include "updateTuning.h"
 
