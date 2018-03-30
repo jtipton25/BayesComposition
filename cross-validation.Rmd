@@ -511,7 +511,9 @@ xtable(results)
 
 
 
-
+```{r}
+kable(results)
+```
 
 
 

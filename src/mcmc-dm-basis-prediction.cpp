@@ -297,7 +297,7 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
       // }
       beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
       // arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
-      arma::mat alpha_pred = exp(Xbs_pred * beta);
+      alpha_pred = exp(Xbs_pred * beta);
       if (sample_X) {
         for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);

@@ -64,27 +64,60 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     } else {
       ## no data to subset
       modWA <- rioja::WA(y_train_prop, X_train)
-      predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)      
+      predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)  
+    }
+    n_train <- nrow(y_train_prop)
+    n_test <- nrow(y_test_prop)
+    n_boot <- 1000
+    predWABoot <- matrix(0, n_test, n_boot)
+    for (i in 1:n_boot) {
+      s <- sample(1:n_train, n_train, replace=TRUE)
+      y_train_boot <- y_train_prop[s, ]
+      X_train_boot <- X_train[s]
+      zeros_idx <- which(colSums(y_train_boot) == 0)
+      if (length(zeros_idx) > 0) {
+        modWABoot <- rioja::WA(y_train_boot[, - zeros_idx], X_train_boot)     
+        predWABoot[, i] <- predict(modWABoot, y_test_prop[, - zeros_idx], sse=FALSE, nboot=1)$fit[, 1]
+      } else {
+        modWABoot <- rioja::WA(y_train_boot, X_train_boot)     
+        predWABoot[, i] <- predict(modWABoot, y_test_prop, sse=FALSE, nboot=1)$fit[, 1]
+      }
     }
     source(here("functions", "makeCRPSGauss.R"))
-    CRPS <- makeCRPSGauss(predWA$fit[, 1], 
-                          sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2), X_test)
-    MAE <- abs(predWA$fit[, 1] - X_test)
+    # CRPS <- makeCRPSGauss(predWA$fit[, 1], 
+    #                       sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2), X_test)
+    CRPS <- abs(apply(predWABoot, 1, median) - X_test)
+    # MAE <- abs(predWA$fit[, 1] - X_test)
+    MAE <- abs(apply(predWABoot, 1, median) - X_test)
     MSPE <- (predWA$fit[, 1] - X_test)^2
     coverage <- (X_test >= 
                    (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2)) & 
-      (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))))
+                   (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))))
   } else  if (model_name=="MAT") {
     
     ## Modern analogue technique
     modMAT <- rioja::MAT(as.data.frame(y_train_prop), X_train, k=20, lean=FALSE)
     predMAT <- predict(modMAT, as.data.frame(y_test_prop), k=10, sse=TRUE, n.boot=1000)
+    n_train <- nrow(y_train_prop)
+    n_test <- nrow(y_test_prop)
+    n_boot <- 1000
+    predMATBoot <- matrix(0, n_test, n_boot)
+    for (i in 1:n_boot) {
+      s <- sample(1:n_train, n_train, replace=TRUE)
+      y_train_boot <- y_train_prop[s, ]
+      X_train_boot <- X_train[s]
+      modMATBoot <- MAT(y_train_boot, X_train_boot, k=20, lean=FALSE)
+      predMATBoot[, i] <- predict(modMATBoot, newdata=y_test, k=20, nboot=1)$fit[, 1]
+    }
+    
     source(here("functions", "makeCRPSGauss.R"))
-    CRPS <- makeCRPSGauss(
-      predMAT$fit.boot[, 2], 
-      sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]),X_test)
+    # CRPS <- makeCRPSGauss(
+    #   predMAT$fit.boot[, 2], 
+    #   sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]),X_test)
+    CRPS <- abs(apply(predMATBoot, 1, median) - X_test)
     MSPE <- ( predMAT$fit.boot[, 2] - X_test)^2
-    MAE <- abs(   predMAT$fit.boot[, 2] - X_test)
+    # MAE <- abs(   predMAT$fit.boot[, 2] - X_test)
+    MAE <- abs(apply(predMATBoot, 1, median) - X_test)
     coverage <- 
       ( X_test >= ( predMAT$fit.boot[, 2] -
                       2 * sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2])) & 
@@ -102,12 +135,33 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
       modMLRC <- rioja::MLRC(y_train_prop, X_train)
       predMLRC <- predict(modMLRC, y_test_prop, sse=TRUE, nboot=1000)
     }
+    n_train <- nrow(y_train_prop)
+    n_test <- nrow(y_test_prop)
+    n_boot <- 1000
+    predMLRCBoot <- matrix(0, n_test, n_boot)
+    for (i in 1:n_boot) {
+      s <- sample(1:n_train, n_train, replace=TRUE)
+      y_train_boot <- y_train_prop[s, ]
+      zeros_idx <- which(colSums(y_train_boot) == 0)
+      X_train_boot <- X_train[s]
+      if (length(zeros_idx) > 0) {
+        modMLRCBoot <- MLRC(y_train_boot[, - zeros_idx], X_train_boot, n.cut=0.1)
+        predMLRCBoot[, i] <- predict(modMLRCBoot, newdata=y_test[, - zeros_idx], sse=TRUE,
+                                     nboot=1, verbose = FALSE)$fit.boot
+      } else {
+        modMLRCBoot <- MLRC(y_train_boot, X_train_boot, n.cut=0.1)
+        predMLRCBoot[, i] <- predict(modMLRCBoot, newdata=y_test, sse=TRUE,
+                                     nboot=1, verbose = FALSE)$fit.boot
+      }
+    }
     source(here("functions", "makeCRPSGauss.R"))
-    CRPS <- makeCRPSGauss(predMLRC$fit[, 1],
-                          sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2),
-                          X_test)
+    # CRPS <- makeCRPSGauss(predMLRC$fit[, 1],
+    #                       sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2),
+    #                       X_test)
+    CRPS <- abs(apply(predMLRCBoot, 1, median) - X_test) 
     MSPE <- (predMLRC$fit[, 1] - X_test)^2
-    MAE <- abs(predMLRC$fit[, 1] - X_test)
+    # MAE <- abs(predMLRC$fit[, 1] - X_test)
+    MAE <- abs(apply(predMLRCBoot, 1, median) - X_test)
     coverage <- ( X_test >= (predMLRC$fit[, 1] - 
                                2*sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2))) & 
       (X_test <= (predMLRC$fit[, 1] + 
