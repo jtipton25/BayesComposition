@@ -4,7 +4,7 @@
 ##
 ##
 ##
-makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop, 
+makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
                     X_cv=X_cv, params=params, folds=folds) {
   library(rioja)
   library(analogue)
@@ -12,7 +12,7 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
   library(coda)
   library(gjam)
   library(here)
-  
+
   ## setup cross-validation training and test data
   idx_test <- which(folds == i, arr.ind=TRUE)
   y_train <- as.matrix(y_cv[-idx_test, ])
@@ -21,15 +21,15 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
   y_test_prop <- as.matrix(y_cv_prop[idx_test, ])
   X_train <- c(X_cv[-idx_test])
   X_test <- c(X_cv[idx_test])
-  
+
   if (model_name=="MVGP") {
     ## Fit MVGP model
     Rcpp::sourceCpp(here("mcmc", "mcmc-dirichlet-multinomial-mvgp.cpp"))
-    out <- mcmc(mcmcRcpp(y_train, X_train, y_test, params, n_chain=i, 
-                         file_name=here("model-fit", "progress", 
+    out <- mcmc(mcmcRcpp(y_train, X_train, y_test, params, n_chain=i,
+                         file_name=here("model-fit", "progress",
                                         "cross-validate", "dm-cv-mvgp.txt")))
     Rcpp::sourceCpp(here("functions", "makeCRPS.cpp"))
-    CRPS <- makeCRPS(out$X, X_test, 
+    CRPS <- makeCRPS(out$X, X_test,
                      params$n_mcmc/params$n_thin)
     X_mean <- apply(out$X, 2, mean)
     MSPE <- (X_mean - X_test)^2
@@ -41,12 +41,12 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
   } else  if (model_name=="GAM") {
     ## Fit GAM model
     Rcpp::sourceCpp(here("mcmc", "mcmc-dm-basis.cpp"))
-    out <- mcmc(mcmcRcpp(y_train, X_train, y_test, params, n_chain=i, 
-                         file_name=here("model-fit", "progress", 
+    out <- mcmc(mcmcRcpp(y_train, X_train, y_test, params, n_chain=i,
+                         file_name=here("model-fit", "progress",
                                         "cross-validate", "dm-cv-basis.txt")))
-    
+
     Rcpp::sourceCpp(here("functions", "makeCRPS.cpp"))
-    CRPS <- makeCRPS(out$X, X_test, 
+    CRPS <- makeCRPS(out$X, X_test,
                      params$n_mcmc/params$n_thin)
     X_mean <- apply(out$X, 2, mean)
     MSPE <- (X_mean - X_test)^2
@@ -64,7 +64,7 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     } else {
       ## no data to subset
       modWA <- rioja::WA(y_train_prop, X_train)
-      predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)  
+      predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)
     }
     n_train <- nrow(y_train_prop)
     n_test <- nrow(y_test_prop)
@@ -76,25 +76,112 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
       X_train_boot <- X_train[s]
       zeros_idx <- which(colSums(y_train_boot) == 0)
       if (length(zeros_idx) > 0) {
-        modWABoot <- rioja::WA(y_train_boot[, - zeros_idx], X_train_boot)     
+        modWABoot <- rioja::WA(y_train_boot[, - zeros_idx], X_train_boot)
         predWABoot[, i] <- predict(modWABoot, y_test_prop[, - zeros_idx], sse=FALSE, nboot=1)$fit[, 1]
       } else {
-        modWABoot <- rioja::WA(y_train_boot, X_train_boot)     
+        modWABoot <- rioja::WA(y_train_boot, X_train_boot)
         predWABoot[, i] <- predict(modWABoot, y_test_prop, sse=FALSE, nboot=1)$fit[, 1]
       }
     }
     source(here("functions", "makeCRPSGauss.R"))
-    # CRPS <- makeCRPSGauss(predWA$fit[, 1], 
+    # CRPS <- makeCRPSGauss(predWA$fit[, 1],
     #                       sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2), X_test)
     CRPS <- abs(apply(predWABoot, 1, median) - X_test)
     # MAE <- abs(predWA$fit[, 1] - X_test)
     MAE <- abs(apply(predWABoot, 1, median) - X_test)
     MSPE <- (predWA$fit[, 1] - X_test)^2
-    coverage <- (X_test >= 
-                   (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2)) & 
+    coverage <- (X_test >=
+                   (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2)) &
                    (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))))
-  } else  if (model_name=="MAT") {
-    
+  }  else if (model_name=="WA") {
+    ## WA reconstruction - subset to deal with all zero occurrence species
+    zeros_idx <- which(colSums(y_train_prop) == 0)
+    if (length(zeros_idx) > 0) {
+      modWA <- rioja::WA(y_train_prop[, - zeros_idx], X_train)
+      predWA <- predict(modWA, y_test_prop[, - zeros_idx], sse=TRUE, nboot=1000)
+    } else {
+      ## no data to subset
+      modWA <- rioja::WA(y_train_prop, X_train)
+      predWA <- predict(modWA, y_test_prop, sse=TRUE, nboot=1000)
+    }
+    n_train <- nrow(y_train_prop)
+    n_test <- nrow(y_test_prop)
+    n_boot <- 1000
+    predWABoot <- matrix(0, n_test, n_boot)
+    for (i in 1:n_boot) {
+      s <- sample(1:n_train, n_train, replace=TRUE)
+      y_train_boot <- y_train_prop[s, ]
+      X_train_boot <- X_train[s]
+      zeros_idx <- which(colSums(y_train_boot) == 0)
+      if (length(zeros_idx) > 0) {
+        modWABoot <- rioja::WA(y_train_boot[, - zeros_idx], X_train_boot)
+        predWABoot[, i] <- predict(modWABoot, y_test_prop[, - zeros_idx], sse=FALSE, nboot=1)$fit[, 1]
+      } else {
+        modWABoot <- rioja::WA(y_train_boot, X_train_boot)
+        predWABoot[, i] <- predict(modWABoot, y_test_prop, sse=FALSE, nboot=1)$fit[, 1]
+      }
+    }
+    source(here("functions", "makeCRPSGauss.R"))
+    # CRPS <- makeCRPSGauss(predWA$fit[, 1],
+    #                       sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2), X_test)
+    CRPS <- abs(apply(predWABoot, 1, median) - X_test)
+    # MAE <- abs(predWA$fit[, 1] - X_test)
+    MAE <- abs(apply(predWABoot, 1, median) - X_test)
+    MSPE <- (predWA$fit[, 1] - X_test)^2
+    coverage <- (X_test >=
+                   (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2)) &
+                   (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))))
+  }
+
+
+ else if (model_name=="WAPLS") {
+  ## WA reconstruction - subset to deal with all zero occurrence species
+  zeros_idx <- which(colSums(y_train_prop) == 0)
+  if (length(zeros_idx) > 0) {
+    modWAPLS <- rioja::WAPLS(y_train_prop[, - zeros_idx], X_train, npls=5)
+    predWAPLS <- predict(modWAPLS, y_test_prop[, - zeros_idx], npls=5,
+                         sse=TRUE, nboot=1000)
+  } else {
+    ## no data to subset
+    modWAPLS <- rioja::WAPLS(y_train_prop, X_train, npls=5)
+    predWAPLS <- predict(modWAPLS, y_test_prop, npls=5,
+                         sse=TRUE, nboot=1000)
+  }
+  n_train <- nrow(y_train_prop)
+  n_test <- nrow(y_test_prop)
+  n_boot <- 1000
+  predWAPLSBoot <- matrix(0, n_test, n_boot)
+  for (i in 1:n_boot) {
+    s <- sample(1:n_train, n_train, replace=TRUE)
+    y_train_boot <- y_train_prop[s, ]
+    X_train_boot <- X_train[s]
+    zeros_idx <- which(colSums(y_train_boot) == 0)
+    if (length(zeros_idx) > 0) {
+      modWAPLSBoot <- rioja::WAPLS(y_train_boot[, - zeros_idx], X_train_boot,
+                                   npls=5)
+      predWAPLSBoot[, i] <- predict(modWAPLSBoot, y_test_prop[, - zeros_idx],
+                                    npls=5, sse=FALSE, nboot=1)$fit[, 1]
+    } else {
+      modWAPLSBoot <- rioja::WAPLS(y_train_boot, X_train_boot, npls=5)
+      predWAPLSBoot[, i] <- predict(modWAPLSBoot, y_test_prop, npls=5,
+                                    sse=FALSE, nboot=1)$fit[, 1]
+    }
+  }
+  source(here("functions", "makeCRPSGauss.R"))
+  # CRPS <- makeCRPSGauss(predWA$fit[, 1],
+  #                       sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2), X_test)
+  CRPS <- abs(apply(predWABoot, 1, median) - X_test)
+  # MAE <- abs(predWA$fit[, 1] - X_test)
+  MAE <- abs(apply(predWABoot, 1, median) - X_test)
+  MSPE <- (predWA$fit[, 1] - X_test)^2
+  coverage <- (X_test >=
+                 (predWA$fit[, 1] - 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2)) &
+                 (X_test <= (predWA$fit[, 1] + 2*sqrt(predWA$v1.boot[, 1]^2 + predWA$v2.boot[1]^2))))
+}
+
+
+  else  if (model_name=="MAT") {
+
     ## Modern analogue technique
     modMAT <- rioja::MAT(as.data.frame(y_train_prop), X_train, k=20, lean=FALSE)
     predMAT <- predict(modMAT, as.data.frame(y_test_prop), k=10, sse=TRUE, n.boot=1000)
@@ -109,21 +196,21 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
       modMATBoot <- MAT(y_train_boot, X_train_boot, k=20, lean=FALSE)
       predMATBoot[, i] <- predict(modMATBoot, newdata=y_test, k=20, nboot=1)$fit[, 1]
     }
-    
+
     source(here("functions", "makeCRPSGauss.R"))
     # CRPS <- makeCRPSGauss(
-    #   predMAT$fit.boot[, 2], 
+    #   predMAT$fit.boot[, 2],
     #   sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]),X_test)
     CRPS <- abs(apply(predMATBoot, 1, median) - X_test)
     MSPE <- ( predMAT$fit.boot[, 2] - X_test)^2
     # MAE <- abs(   predMAT$fit.boot[, 2] - X_test)
     MAE <- abs(apply(predMATBoot, 1, median) - X_test)
-    coverage <- 
+    coverage <-
       ( X_test >= ( predMAT$fit.boot[, 2] -
-                      2 * sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2])) & 
+                      2 * sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2])) &
           (X_test <= (predMAT$fit.boot[, 2] +
                         2*  sqrt(predMAT$v1.boot[, 2]^2+ predMAT$v2.boot[2]))))
-    
+
   } else if (model_name=="MLRC") {
     ## MLRC reconstruction - subset to deal with all zero occurrence species
     zeros_idx <- which(colSums(y_train_prop) == 0)
@@ -158,22 +245,22 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     # CRPS <- makeCRPSGauss(predMLRC$fit[, 1],
     #                       sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2),
     #                       X_test)
-    CRPS <- abs(apply(predMLRCBoot, 1, median) - X_test) 
+    CRPS <- abs(apply(predMLRCBoot, 1, median) - X_test)
     MSPE <- (predMLRC$fit[, 1] - X_test)^2
     # MAE <- abs(predMLRC$fit[, 1] - X_test)
     MAE <- abs(apply(predMLRCBoot, 1, median) - X_test)
-    coverage <- ( X_test >= (predMLRC$fit[, 1] - 
-                               2*sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2))) & 
-      (X_test <= (predMLRC$fit[, 1] + 
+    coverage <- ( X_test >= (predMLRC$fit[, 1] -
+                               2*sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2))) &
+      (X_test <= (predMLRC$fit[, 1] +
                     2 * sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot[1]^2)))
   } else if (model_name=="WAPLS") {
     ## WAPLS reconstruction - subset to deal with all zero occurrence species
     zeros_idx <- which(colSums(y_train_prop) == 0)
     if (length(zeros_idx) > 0) {
-      modWAPLS <- rioja::WAPLS(y_train_prop[, - zeros_idx], X_train)     
+      modWAPLS <- rioja::WAPLS(y_train_prop[, - zeros_idx], X_train)
       predWAPLS <- predict(modWAPLS, y_test_prop, sse=TRUE, nboot=1000)
     } else {
-      modWAPLS <- rioja::WAPLS(y_train_prop, X_train)     
+      modWAPLS <- rioja::WAPLS(y_train_prop, X_train)
       predWAPLS <- predict(modWAPLS, y_test_prop, sse=TRUE, nboot=1000)
     }
     source(here("functions", "makeCRPSGauss.R"))
@@ -183,8 +270,8 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     MAE <- abs(predWAPLS$fit[, 1] - X_test)
     coverage <- (
       X_test >=
-        (predWAPLS$fit[, 1] - 2*sqrt(predWAPLS$v1.boot[, 1]))) & 
-      (X_test <= 
+        (predWAPLS$fit[, 1] - 2*sqrt(predWAPLS$v1.boot[, 1]))) &
+      (X_test <=
          (predWAPLS$fit[, 1] + 2 * sqrt(predWAPLS$v1.boot[, 1])))
   } else if (model_name=="RF") {
     ## Random Forest
@@ -192,7 +279,7 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     test <- data.frame(y_test)
     rf <- randomForest(moisture ~ ., data = train)
     Rcpp::sourceCpp(here("functions", "makeCRPS.cpp"))
-    CRPS <- makeCRPS(t(matrix(predict(rf, test, predict.all=TRUE)$individual, 
+    CRPS <- makeCRPS(t(matrix(predict(rf, test, predict.all=TRUE)$individual,
                               length(idx_test), 500)), X_test, 500)
     # CRPS <- abs(predict(rf, test) - X_test)
     MSPE <- (predict(rf, test) - X_test)^2
@@ -209,18 +296,18 @@ makeCV <- function (i, model_name=model_name, y_cv=y_cv, y_cv_prop=y_cv_prop,
     Xdf$x[idx_hold] <- NA
     ydf <- data.frame(as.matrix(rbind(y_train, y_test)))
     colnames(ydf) <- paste("y", 1:dim(y_train)[2], sep="")
-    ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y_train)[2]), 
+    ml <- list(ng = 5000, burnin = 500, typeNames = rep("CC", dim(y_train)[2]),
                PREDICTX=TRUE)
     # out <- gjam(~ x, Xdf, ydf, ml)
     out <- gjam(~ x + I(x^2), Xdf, ydf, ml)
     # xMu  <- out$prediction$xpredMu        #inverse prediction of x
     # xSd  <- out$prediction$xpredSd
     xMu  <- out$prediction$xpredMu[idx_hold, 2]        #inverse prediction of x
-    xSd  <- out$prediction$xpredSd[idx_hold, 2]  
+    xSd  <- out$prediction$xpredSd[idx_hold, 2]
 
     ##
     source(here("functions", "makeCRPSGauss.R"))
-    
+
     CRPS <- makeCRPSGauss(xMu, xSd, X_test)
     MSPE <- (xMu - X_test)^2
     MAE <- abs(xMu - X_test)
