@@ -554,4 +554,8 @@ kable(results)
 
 
 
+```{r}
+plot(pred_mu_WA ~ pred_mu_WAPLS)
+abline(a=0, b=1, col="red")
+```
 
