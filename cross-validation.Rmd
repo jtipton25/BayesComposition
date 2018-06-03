@@ -238,9 +238,9 @@ if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
       predWAPLS <- predict(modWAPLS, y_prop_test, npls=5, sse=TRUE, nboot=1000)      
     }
     
-    pred_mu_WAPLS <- c(pred_mu_WAPLS, predWAPLS$fit[, 2])
-    pred_sd_WAPLS <- c(pred_sd_WAPLS, sqrt(predWAPLS$v1.boot[, 2]^2 + 
-                                             predWA$v2.boot[2]^2))
+    pred_mu_WAPLS <- c(pred_mu_WAPLS, predWAPLS$fit[, 5])
+    pred_sd_WAPLS <- c(pred_sd_WAPLS, sqrt(predWAPLS$v1.boot[, 5]^2 + 
+                                             predWAPLS$v2.boot[5]^2))
     
     ## MLRC reconstruction - subset to deal with all zero occurrence species
     zeros_idx <- which(apply(y_prop_train, 1, sum) == 0)
@@ -355,11 +355,11 @@ if (file.exists(paste0(save_directory, "bummer-cv-predictions.RData"))) {
       }
     }
     n_iter <- dim(e$a)[1]
-    n_grid <- 100
+    n_grid <- 250
     N_pred <- dim(y_test)[1]
     XX_post <- matrix(0, n_iter, N_pred)
-    X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), 
-                  to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+    X_grid <- seq(from=min(X_center) - 0.125*sd(X_center), 
+                  to=max(X_center) + 0.125*sd(X_center), length=n_grid)
     alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
     
     for (k in 1:n_iter) {
@@ -469,7 +469,7 @@ abline(lm(apply(preds_rf, 1, mean) ~ X[sample_idx]), col="blue")
 ## sort the data to be in the same order as the predictions
 plot(apply(X_pred_bummer, 2, mean) ~ X[sample_idx], 
      ylab="predicted mean", xlab="Observed", 
-     main="Cross-validation of Bummer model", xlim=c(-40, 80), ylim=c(-40, 80))
+     main="Cross-validation of BUMMER model", xlim=c(-40, 80), ylim=c(-40, 80))
 ## Notice most of the confidence intervals cover the red linear regression line 
 ## i.e. the 95% CI is close to 95%
 segments(x0=X[sample_idx], y0=apply(X_pred_bummer, 2, quantile, prob=0.025), 
@@ -533,7 +533,7 @@ CRPS[, 5] <- makeCRPSGauss(pred_mu_MLRC, pred_sd_MLRC, X[sample_idx])
 CRPS[, 6] <- makeCRPSGauss(pred_mu_MAT, pred_sd_MAT, X[sample_idx])
 CRPS[, 7] <- makeCRPS(t(preds_rf), X[sample_idx], dim(preds_rf)[2])
 
-models <- c("MVGP", "Bummer", "WA", "WAPLS", "MLRC", "MAT", "RF")
+models <- c("MVGP", "BUMMER", "WA", "WAPLS", "MLRC", "MAT", "RF")
 colnames(MSPE) <- models
 colnames(MAE) <- models
 colnames(coverage) <- models
@@ -543,7 +543,7 @@ results <- rbind(
   apply(coverage, 2, mean), apply(CRPS, 2, mean))
 rownames(results) <- c("MSPE", "MAE", "Coverage", "CRPS")
 library(xtable)
-xtable(results)
+print(xtable(results), file="cv-results.tex")
 ```
 
 
