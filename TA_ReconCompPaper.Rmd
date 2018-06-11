@@ -257,7 +257,7 @@ ggplot(caribou.df, aes(Observation, Covariate)) +
 
 Fit the other models
 
-```{r, cache=TRUE, message=FALSE, include=FALSE}
+```{r, cache=TRUE, message=FALSE}
 y_prop <- y
 y_recon_prop <- y_recon
 for (i in 1:N) {
@@ -338,7 +338,7 @@ load(here("mvgp-test", "fit-bummer-stan.RData"))
 
 predict with Bummer model
 
-```{r, cache=TRUE, include=FALSE }
+```{r, cache=T}
 mu_X <- mean(X)
 sd_X <- sd(X)
 X_center <- (X-mu_X) / sd_X
@@ -481,7 +481,7 @@ ggplot(subset(caribou.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariat
 ```{r}
 levels(caribou.df$Model)
 
-caribou.df$Model <- factor(caribou.df$Model, levels = c("MVGP", "Bummer", "WA", "WAPLS", "MLRC", "MAT", "RF"))
+caribou.df$Model <- factor(caribou.df$Model, levels = c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF"))
 
 ```
 
