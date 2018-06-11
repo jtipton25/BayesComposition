@@ -543,7 +543,7 @@ results <- rbind(
   apply(coverage, 2, mean), apply(CRPS, 2, mean))
 rownames(results) <- c("MSPE", "MAE", "Coverage", "CRPS")
 library(xtable)
-xtable(results)
+print(xtable(results), file="./results.tex")
 ```
 
 
