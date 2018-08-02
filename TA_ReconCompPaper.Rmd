@@ -1,6 +1,6 @@
 ---
 title: "Analyses for TA reconstruction comparison paper"
-author: "Connor Nolan"
+author: "Connor Nolan, John Tipton"
 output:
   html_document: default
   html_notebook: default
@@ -12,7 +12,6 @@ set.seed(11)
 library(BayesComposition) 
 library(knitr)
 library(ggplot2)
-library(gjam)
 library(rioja)
 library(analogue)
 library(here)
