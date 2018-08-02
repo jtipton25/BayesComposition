@@ -54,7 +54,6 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
     message = as<int>(params["message"]);
   }
 
-
   // set up dimensions
   double N = Y.n_rows;
   double d = Y.n_cols;
@@ -140,6 +139,7 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   // }
   // default beta tuning parameter
   arma::vec lambda_beta_tune(d, arma::fill::ones);
+
   lambda_beta_tune *= 1.0 / pow(3.0, 0.8);
   if (params.containsElementNamed("lambda_beta_tune")) {
     lambda_beta_tune = as<vec>(params["lambda_beta_tune"]);
@@ -149,16 +149,19 @@ List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
   if (params.containsElementNamed("minX")) {
     minX = as<double>(params["minX"]);
   }
+
   double maxX = max(X);
   if (params.containsElementNamed("maxX")) {
     maxX = as<double>(params["maxX"]);
   }
+
   arma::vec rangeX(2);
   rangeX(0)=minX;
   rangeX(1)=maxX;
   // rangeX(0)=minX-1*s_X;   // Assuming X is mean 0 and sd 1, this gives 3 sds beyond
   // rangeX(1)=maxX+1*s_X;   // buffer for the basis beyond the range of the
   // observational data
+
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
   knots = knots.subvec(1, df-degree-1);
   arma::mat Xbs = bs_cpp(X, df, knots, degree, true, rangeX);

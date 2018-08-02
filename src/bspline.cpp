@@ -117,7 +117,10 @@ arma::mat bs_cpp (const arma::vec& x, const int& df,
     arma::uvec K_uvec(n_idx);
     K_uvec.fill(K-1);
     arma::vec one_vec(n_idx, arma::fill::ones);
-    B_mat.submat(idx, K_uvec) = one_vec;
+    // B_mat.submat(idx, K_uvec) = one_vec;
+    for (int i=0; i<n_idx; i++) {
+      B_mat(idx(i), K_uvec(i)) = 1.0;
+    }
   }
   if(intercept == FALSE) {
     return(B_mat.cols(span(1, K-1)));
