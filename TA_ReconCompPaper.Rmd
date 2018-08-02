@@ -281,6 +281,23 @@ if (length(zeros_idx) > 0) {
 pred_mu_WA <- predWA$fit[, 1]
 pred_sd_WA <- sqrt((predWA$v1.boot[, 1])^2 + predWA$v2.boot[1]^2)
 
+
+## WAPLS reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modWAPLS <- rioja::WAPLS(y_prop[, - zeros_idx], X, npls=5)
+  predWAPLS <- predict(modWAPLS, y_recon_prop[, - zeros_idx], npls=5,
+                       sse=TRUE, nboot=1000)
+} else {
+  ## no data to subset
+  modWAPLS <- rioja::WAPLS(y_prop, X, npls=5)
+  predWAPLS <- predict(modWAPLS, y_recon_prop, npls=5,
+                       sse=TRUE, nboot=1000)      
+}
+
+pred_mu_WAPLS <- predWAPLS$fit[, 1]
+pred_sd_WAPLS <- sqrt((predWAPLS$v1.boot[, 2])^2 + predWAPLS$v2.boot[2]^2)
+
 ## MLRC reconstruction - subset to deal with all zero occurrence species
 zeros_idx <- which(colSums(y_prop) == 0)
 if (length(zeros_idx) > 0) {
@@ -374,17 +391,20 @@ n_samples <- length(pred$X[, 1])
 N_pred <- length(pred$X[1, ])
 
 preds_WA <- matrix(0, n_samples, N_pred)
+preds_WAPLS <- matrix(0, n_samples, N_pred)
 preds_MLRC <- matrix(0, n_samples, N_pred)
 preds_MAT <- matrix(0, n_samples, N_pred)
 # preds_GJAM <- matrix(0, n_samples, d)
 for (i in 1:N_pred) {
   preds_WA[, i] <- rnorm(n_samples, pred_mu_WA[i], pred_sd_WA[i])
+  preds_WAPLS[, i] <- rnorm(n_samples, pred_mu_WAPLS[i], pred_sd_WAPLS[i])
   preds_MLRC[, i] <- rnorm(n_samples, pred_mu_MLRC[i], pred_sd_MLRC[i])
   preds_MAT[, i] <- rnorm(n_samples, pred_mu_MAT[i], pred_sd_MAT[i])
   # preds_GJAM[, j] <- rnorm(n_samples, pred_mu_GJAM, pred_sd_GJAM)
 }
 X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_WAPLS, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
           apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
@@ -392,9 +412,9 @@ X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ],
 
 caribou.df <- data.frame(
   Covariate=c(X_ci),
-  Observation=rep((1:N_pred), each=6*n_samples*0.95), 
-  Age=rep(CaribouRecon$Age, each=6*n_samples*.95),
-  Model=rep(c("MVGP", "WA", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
+  Observation=rep((1:N_pred), each=7*n_samples*0.95), 
+  Age=rep(CaribouRecon$Age, each=7*n_samples*.95),
+  Model=rep(c("MVGP", "WA", "WAPLS", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
 )
 
 ```
@@ -757,7 +777,7 @@ gg <- ggplot()
 gg <- gg + geom_map(data=us_map, map=us_map,
                     aes(x=long, y=lat, map_id=id),
                     color="black", fill="grey88", size=0.1)
-gg <- gg + geom_point(data = cal_sites, aes(x=lon, y=lat), shape=21, size=5, color="black", fill="lightblue") + points_elided()
+gg <- gg + geom_point(data = cal_sites, aes(x=lon, y=lat), shape=21, size=5, color="black", fill="lightblue") #+ points_elided()
 
 gg <- gg + theme_map()
 
@@ -804,7 +824,7 @@ training_dists_mat <- as.matrix(training_dists)
 
 recon_dists <- paldist2(y_prop, y_recon_prop)
 
-recon_dists_mat <- training_distsas.matrix(recon_dists)
+recon_dists_mat <- as.matrix(recon_dists)
 
 hist(training_dists)
 hist(recon_dists)
