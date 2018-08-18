@@ -17,6 +17,7 @@ fit_compositional_data <- function(
   ##    - "multi-logit"
   ##    - "dirichlet-multinomial"
   ## function_type is the form of the latent functional. Options are:
+  ##    - "lienar" - in development
   ##    - "basis"
   ##    - "gaussian-process"
   ## df is the basis degrees of freedom
@@ -133,7 +134,12 @@ fit_compositional_data <- function(
     #                           progress_directory=progress_directory,
     #                           progress_file=progress_file) {
     if (params$likelihood == "gaussian") {
-      if (params$function_type == "basis") {
+      if (params$function_type == "linear") {
+        warning("Gaussian Linear MVGP In Development")
+        # out <- coda::mcmc(mcmcRcppLinear(y, X, params, n_chain=n_chains,
+        #                                 file_name=paste0(progress_directory,
+        #                                                  progress_file)))
+      } else if (params$function_type == "basis") {
         ## gaussian basis mcmc
         out <- coda::mcmc(mcmcRcppBasis(y, X, params, n_chain=n_chains,
                                         file_name=paste0(progress_directory,
@@ -145,10 +151,15 @@ fit_compositional_data <- function(
                                                         progress_file)))
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis" and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
       }
     } else if (params$likelihood == "multi-logit") {
-      if (params$function_type == "basis") {
+      if (params$function_type == "linear") {
+        warning("Multi-logit Linear MVGP In Development")
+        # out <- coda::mcmc(mcmcRcppMLLinear(y, X, params, n_chain=n_chains,
+        #                                 file_name=paste0(progress_directory,
+        #                                                  progress_file)))
+      } else if (params$function_type == "basis") {
         ## multi-logit basis mcmc
         out <- coda::mcmc(mcmcRcppMLBasis(y, X, params, n_chain=n_chains,
                                           file_name=paste0(progress_directory,
@@ -160,10 +171,14 @@ fit_compositional_data <- function(
                                                           progress_file)))
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis" and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
       }
     } else if (params$likelihood == "dirichlet-multinomial") {
-      if (params$function_type == "basis") {
+      if (params$function_type == "linear") {
+        out <- coda::mcmc(mcmcRcppDMLinear(y, X, params, n_chain=n_chains,
+                                        file_name=paste0(progress_directory,
+                                                         progress_file)))
+      } else if (params$function_type == "basis") {
         ## dirichlet-multinomial basis mcmc
         if (params$multiplicative_correlation == FALSE) {
           if (params$additive_correlation == FALSE) {
@@ -211,7 +226,7 @@ fit_compositional_data <- function(
         }
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis" and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
       }
     } else {
       ## error if likelihood argument is incorrect

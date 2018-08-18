@@ -109,12 +109,12 @@ if (file.exists(here("mvgp-test", "fit-bummer-stan.RData"))) {
     sigma2=runif(d, 1, 5), 
     alpha=matrix(runif(N*d, 1, 5), N, d)) } 
   
-  bummer_model <- stan_model(here("bummer-dm.stan"))
-  # ADVI
-  fit_vb <- vb(bummer_model, data=dat, output_samples=2000, seed=123)
-  
-  # ADVI+fullrank
-  fit_vbfr <- vb(bummer_model, data=dat, output_samples=2000, seed=123, algorithm = "fullrank")
+  # bummer_model <- stan_model(here("bummer-dm.stan"))
+  # # ADVI
+  # fit_vb <- vb(bummer_model, data=dat, output_samples=2000, seed=123)
+  # 
+  # # ADVI+fullrank
+  # fit_vbfr <- vb(bummer_model, data=dat, output_samples=2000, seed=123, algorithm = "fullrank")
 
   fit = stan(file=here("bummer-dm.stan"), iter=n_mcmc,
              verbose=FALSE, data=dat, chains=4, init=init_fun,

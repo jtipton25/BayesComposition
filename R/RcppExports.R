@@ -202,6 +202,10 @@ mcmcRcppDMBasis <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, fil
     .Call('_BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
+mcmcRcppDMLinear <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('_BayesComposition_mcmcRcppDMLinear', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
+}
+
 mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
     .Call('_BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
 }

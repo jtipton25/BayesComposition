@@ -828,6 +828,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// mcmcRcppDMLinear
+List mcmcRcppDMLinear(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
+RcppExport SEXP _BayesComposition_mcmcRcppDMLinear(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< bool >::type pool_s2_tau2(pool_s2_tau2SEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type corr_function(corr_functionSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMLinear(Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function));
+    return rcpp_result_gen;
+END_RCPP
+}
 // mcmcRcppGAM
 List mcmcRcppGAM(const arma::mat& Y, const arma::vec& X_input, List params, int n_chain, std::string file_name);
 RcppExport SEXP _BayesComposition_mcmcRcppGAM(SEXP YSEXP, SEXP X_inputSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP file_nameSEXP) {
@@ -1446,6 +1463,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BayesComposition_mcmcRcppDMBasisMultiplicative", (DL_FUNC) &_BayesComposition_mcmcRcppDMBasisMultiplicative, 7},
     {"_BayesComposition_predictRcppDMBasis", (DL_FUNC) &_BayesComposition_predictRcppDMBasis, 8},
     {"_BayesComposition_mcmcRcppDMBasis", (DL_FUNC) &_BayesComposition_mcmcRcppDMBasis, 7},
+    {"_BayesComposition_mcmcRcppDMLinear", (DL_FUNC) &_BayesComposition_mcmcRcppDMLinear, 7},
     {"_BayesComposition_mcmcRcppGAM", (DL_FUNC) &_BayesComposition_mcmcRcppGAM, 5},
     {"_BayesComposition_predictRcppMVGPMultiplicative", (DL_FUNC) &_BayesComposition_predictRcppMVGPMultiplicative, 8},
     {"_BayesComposition_predictRcppMVGP", (DL_FUNC) &_BayesComposition_predictRcppMVGP, 8},
