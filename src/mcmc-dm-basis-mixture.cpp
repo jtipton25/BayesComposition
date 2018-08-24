@@ -271,8 +271,8 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
 
   for (int i=0; i<N; i++) {
     arma::vec log_p = log(phi);
-    log_p(0) = LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
-    log_p(1) = LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
+    log_p(0) += LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
+    log_p(1) += LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
     double a = log_p.max();
     arma::vec prob_sample = 1.0 / (exp(a + log(sum(exp(log_p - a))) - log_p));
     z(i) = as_scalar(csample(one_to_2, 1, false, as<NumericVector>(wrap(prob_sample))));
@@ -470,8 +470,8 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
     if (sample_z) {
       for (int i=0; i<N; i++) {
         arma::vec log_p = log(phi);
-        log_p(0) = LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
-        log_p(1) = LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
+        log_p(0) += LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
+        log_p(1) += LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
         double a = log_p.max();
         arma::vec prob_sample = 1.0 / (exp(a + log(sum(exp(log_p - a))) - log_p));
         z(i) = as_scalar(csample(one_to_2, 1, false, as<NumericVector>(wrap(prob_sample))));
@@ -660,8 +660,8 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
     if (sample_z) {
       for (int i=0; i<N; i++) {
         arma::vec log_p = log(phi);
-        log_p(0) = LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
-        log_p(1) = LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
+        log_p(0) += LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
+        log_p(1) += LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
         double a = log_p.max();
         arma::vec prob_sample = 1.0 / (exp(a + log(sum(exp(log_p - a))) - log_p));
         z(i) = as_scalar(csample(one_to_2, 1, false, as<NumericVector>(wrap(prob_sample))));
@@ -684,7 +684,7 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
     if (sample_beta) {
     file_out << "Average acceptance rate for beta1  = " << mean(beta1_accept) <<
       " for chain " << n_chain << "\n";
-      file_out << "Average acceptance rate for beta1  = " << mean(beta2_accept) <<
+      file_out << "Average acceptance rate for beta2  = " << mean(beta2_accept) <<
         " for chain " << n_chain << "\n";
     }
 
