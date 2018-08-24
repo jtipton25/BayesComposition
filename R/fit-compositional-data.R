@@ -117,6 +117,13 @@ fit_compositional_data <- function(
     params$multiplicative_correlation <<- FALSE
   }
 
+
+    ## if not given, set mixture to FALSE
+  if(is.null(params$mixture)) {
+    params$mixture <- FALSE
+    params$mixture <<- FALSE
+  }
+
   ## if not given, set n_chains to 4
   if(is.null(params$n_chains)) {
     params$n_chains <- 4
@@ -182,9 +189,15 @@ fit_compositional_data <- function(
         ## dirichlet-multinomial basis mcmc
         if (params$multiplicative_correlation == FALSE) {
           if (params$additive_correlation == FALSE) {
+            if(params$mixture == FALSE) {
             out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
                                               file_name=paste0(progress_directory,
                                                                progress_file)))
+            } else {
+              out <- coda::mcmc(mcmcRcppDMBasisMixture(y, X, params, n_chain=n_chains,
+                                                       file_name=paste0(progress_directory,
+                                                                        progress_file)))
+            }
           } else {
             out <- coda::mcmc(mcmcRcppDMBasisAdditive(y, X, params, n_chain=n_chains,
                                                       file_name=paste0(progress_directory,

@@ -178,6 +178,14 @@ mcmcRcppDMBasisAdditive <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = T
     .Call('_BayesComposition_mcmcRcppDMBasisAdditive', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
+csample <- function(x, size, replace, prob) {
+    .Call('_BayesComposition_csample', PACKAGE = 'BayesComposition', x, size, replace, prob)
+}
+
+mcmcRcppDMBasisMixture <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit", corr_function = "exponential") {
+    .Call('_BayesComposition_mcmcRcppDMBasisMixture', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name, corr_function)
+}
+
 predictRcppDMBasisMultiplicativeAdditive <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
     .Call('_BayesComposition_predictRcppDMBasisMultiplicativeAdditive', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
