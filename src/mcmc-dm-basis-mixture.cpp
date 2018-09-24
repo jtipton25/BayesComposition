@@ -635,6 +635,22 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
       Sigma_beta2_chol = chol(Sigma_beta2);
     }
 
+
+    //
+    // sample mixing indicator z
+    //
+
+    if (sample_z) {
+      for (int i=0; i<N; i++) {
+        arma::vec log_p = log(phi);
+        log_p(0) += LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
+        log_p(1) += LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
+        double a = log_p.max();
+        arma::vec prob_sample = 1.0 / (exp(a + log(sum(exp(log_p - a))) - log_p));
+        z(i) = as_scalar(csample(one_to_2, 1, false, as<NumericVector>(wrap(prob_sample))));
+      }
+    }
+
     //
     // save variables
     //
@@ -651,21 +667,6 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
       Sigma_beta1_save.subcube(span(save_idx), span(), span()) = Sigma_beta1;
       Sigma_beta2_save.subcube(span(save_idx), span(), span()) = Sigma_beta2;
       z_save.row(save_idx) = z.t();
-    }
-
-    //
-    // sample mixing indicator z
-    //
-
-    if (sample_z) {
-      for (int i=0; i<N; i++) {
-        arma::vec log_p = log(phi);
-        log_p(0) += LL_DM_row(alpha1.row(i), Y.row(i), d, count(i));
-        log_p(1) += LL_DM_row(alpha2.row(i), Y.row(i), d, count(i));
-        double a = log_p.max();
-        arma::vec prob_sample = 1.0 / (exp(a + log(sum(exp(log_p - a))) - log_p));
-        z(i) = as_scalar(csample(one_to_2, 1, false, as<NumericVector>(wrap(prob_sample))));
-      }
     }
 
     // end of MCMC iteration
