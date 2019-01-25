@@ -14,3 +14,4 @@ Imports:
     grid, 
     coda
 LinkingTo: Rcpp, RcppArmadillo
+RoxygenNote: 6.1.0

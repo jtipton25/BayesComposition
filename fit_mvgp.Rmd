@@ -5,74 +5,105 @@ date: "6/8/2017"
 output: html_document
 ---
 
+# Simulation Study
+
+To evaluate the performance of the proposed inverse prediction framework, we conducted tw different simulation studies. First, we simulated data on the log-scale random effect $\boldsymbol{\alpha}_i$ (Equation (3) in the manuscript) setting $N=800$ observations where the covariate is observed, $\tilde{N}=200$ observations where the covariate is unobserved with $d=8$ species. The parameters used in simulation are $\mu \sim \operatorname{N}(0, 0.125)$, $\mathbf{R} \sim \operatorname{LKJ}(1)$, $\tau_j \sim \operatorname{gamma}(5, 5)$, $X \sim \operatorname{N}(0, 1)$, $\sigma^2 = 1$, $\phi = 5$, and $\boldsymbol{\varepsilon}_i \sim \operatorname{N} ( \mathbf{0}, \boldsymbol{\Sigma}_{\varepsilon})$ with $ \boldsymbol{\Sigma}_{\varepsilon} \sim \operatorname{diag}(\boldsymbol{\tau}_{\varepsilon})^{1/2} \boldsymbol{R}_{\varepsilon}\boldsymbol{R}_{\varepsilon}' \operatorname{diag}(\boldsymbol{\tau}_{\varepsilon})^{1/2}$ where $\tau_{\varepsilon j} \sim \operatorname{gamma}(5, 5)$ $\boldsymbol{R}_{\varepsilon} \sim \operatorname{LKJ}(1)$. The simulation of the data using the `sim_compositional_data()` function in the `BayesComposition` package is shown below.
+
 
 ```{r, warning=FALSE, message=FALSE}
 set.seed(11)
 library(BayesComposition)
 library(knitr)
 library(ggplot2)
-N <- 500
-N_pred <- 25
-d <- 4
-n_knots <- 30
+library(here)
 ```
 
-## dirichlet-multinomial simulation using basis with overdispersion
+
 
 ```{r}
-dat <- sim_compositional_data(N=N, N_pred=N_pred, d=d,
-                              likelihood = "gaussian",
-                              function_type = "gaussian-process",
-                              correlation_function = "exponential",
-                              additive_correlation = TRUE,
-                              multiplicative_correlation = FALSE)
+## Function from BayesComposition to simulate data from MVGP model
+N <- 500
+N_pred <- 200
+d <- 8
+n_knots <- 30
+
+dat <- sim_compositional_data(
+  N                          = N,
+  N_pred                     = N_pred, 
+  d                          = d,
+  likelihood                 = "gaussian",        
+  function_type              = "gaussian-process",
+  predictive_process         = FALSE, 
+  correlation_function       = "exponential",
+  additive_correlation       = TRUE,
+  multiplicative_correlation = TRUE)
 
 
 
-simPlotData <- data.frame(species=as.factor(rep(1:d, each=N)),
-                          count=c(dat$y),
-                          depth=rep(dat$X, times=d), alpha=c(dat$alpha))
+simPlotData <- data.frame(
+  species = as.factor(rep(1:d, each = N)),
+  count   = c(dat$y),
+  depth   = rep(dat$X, times = d),
+  alpha   = c(dat$alpha))
 
 gsim1 <- ggplot(simPlotData, aes(x=depth, y=count, color=species,
                                  group=species)) +
-  geom_point(alpha=0.25) + theme(legend.position="none") +
+  geom_point(alpha=0.25) +
+  theme(legend.position="none") +
   ggtitle("Simulated response vs. depth") +
   geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25)
 
 gsim2 <- ggplot(simPlotData, aes(x=depth, y=count, color=species,
                                  group=species)) +
-  geom_point(alpha=0.25) + theme(legend.position="none") +
+  geom_point(alpha=0.25) + 
+  theme(legend.position="none") +
   ggtitle("Simulated response vs. depth by species") +
   geom_line(aes(x=depth, y=alpha, col = species), simPlotData, lwd=1.25) +
   facet_wrap( ~ species, ncol = 4)
+
+## generate the plot
 multiplot(gsim1, gsim2, cols=1)
 ```
 
-
+To fit the model, we consider $n^{\star} = 30$ evenly spaced knots over a range larger than the observed data $X$ to allow for potential predictions outside the range of the prediction. We have not found the inference to show much sensitivity in practical applications to the number of knots. We fit the model for 50000 MCMC iterations, where the first 25000 iterations include adaptive tuning of the Metropolis-Hastings proposals \citep{roberts}
 
 ```{r}
-X_knots <- seq(min(dat$X, na.rm=TRUE)-1.25*sd(dat$X, na.rm=TRUE), 
-               max(dat$X, na.rm=TRUE)+1.25*sd(dat$X, na.rm=TRUE),
-               length=n_knots)
+## generate a sequence of knots that covers ranges outside the observed values
+X_knots <- seq(
+  min(dat$X, na.rm=TRUE) - 1.25 * sd(dat$X, na.rm=TRUE), 
+  max(dat$X, na.rm=TRUE) + 1.25 * sd(dat$X, na.rm=TRUE),
+  length = n_knots)
 
-params <- list(n_adapt=5000, n_mcmc=5000, n_thin=10, 
-               correlation_function="exponential", 
-               n_knots=n_knots, X_knots=X_knots)
-save_directory <- "~/mvgp-test/"
+## define the model parameters
+params <- list(
+  n_adapt              = 25000,
+  n_mcmc               = 25000,
+  n_thin               = 250, 
+  correlation_function = "exponential", 
+  likelihood           = "gaussian", 
+  function_type        = "gaussian-process",
+  n_chains             = 4,
+  n_cores              = 4,
+  n_knots              = n_knots,
+  X_knots              = X_knots)
+
+save_directory <- "./mvgp-test/"
+progress_directory <- "./mvgp-test/"
 save_file <- "mvgp.RData"
+progress_file <- "mvgp-gaussian.txt"
 
 if (file.exists(paste0(save_directory, save_file))) {
   load(paste0(save_directory, save_file))
 } else {
   ## potentially long running MCMC code
-  out <- fit_compositional_data(y=dat$y, X=dat$X, params=params, 
-                                likelihood = "gaussian", 
-                                function_type = "gaussian-process",
-                                n_chains=4, n_cores=4,
-                                progress_directory = "~/mvgp-test/",
-                                progress_file = "mvgp.txt", 
-                                save_directory = "~/mvgp-test/",
-                                save_file = "mvgp.RData")
+  out <- fit_compositional_data(
+    y                  = dat$y,
+    X                  = dat$X,
+    params             = params, 
+    progress_directory = progress_directory,
+    progress_file      = progress_file,
+    save_directory     = save_directory,
+    save_file          = save_file)
 }
 ```
 
@@ -97,8 +128,10 @@ xi_post <- samples$xi
 
 
 ```{r}
+## Calculate Gelman-Rubin convergence statistic
 Rhat <- make_gelman_rubin(out)
 layout(matrix(1:9, 3, 3))
+hist(Rhat, main="All parameters")
 hist(Rhat[grepl("mu", names(Rhat))], main = "Rhat for mu")
 hist(Rhat[grepl("eta_star", names(Rhat))], main = "Rhat for eta_star")
 hist(Rhat[grepl("zeta", names(Rhat))], main = "Rhat for zeta")
@@ -107,7 +140,6 @@ hist(Rhat[grepl("sigma2", names(Rhat))], main = "Rhat for sigma2")
 hist(Rhat[grepl("tau2", names(Rhat))], main = "Rhat for tau2")
 hist(Rhat[grepl("R_tau", names(Rhat))], main = "Rhat for R_tau")
 hist(Rhat[grepl("xi", names(Rhat))], main = "Rhat for xi")
-hist(Rhat, main="All parameters")
 Rhat[!is.finite(Rhat)] <- NA
 max(unlist(na.omit(Rhat)))
 ```

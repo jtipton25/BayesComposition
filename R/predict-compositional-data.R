@@ -3,8 +3,8 @@ predict_compositional_data <- function(
   X_calibrate,
   params,
   samples,
-  progress_directory,
-  progress_file
+  progress_directory = "./",
+  progress_file      = "progress-predict.txt"
 ) {
   ## y is an N_pred by d matrix of observations where inverse prediction is desired
   ## N is the sample size
@@ -35,8 +35,8 @@ predict_compositional_data <- function(
     y_reconstruct <- as.matrix(y_reconstruct)
   }
   ## calculate prior from calibration data
-  mu_X = mean(X_calibrate)
-  s2_X <- var(X_calibrate)
+  mu_X  <- mean(X_calibrate)
+  s2_X  <- var(X_calibrate)
   min_X <- min(X_calibrate)
   max_X <- max(X_calibrate)
 

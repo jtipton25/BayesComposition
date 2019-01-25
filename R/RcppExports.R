@@ -218,16 +218,24 @@ mcmcRcppGAM <- function(Y, X_input, params, n_chain = 1L, file_name = "gam") {
     .Call('_BayesComposition_mcmcRcppGAM', PACKAGE = 'BayesComposition', Y, X_input, params, n_chain, file_name)
 }
 
-predictRcppMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
-    .Call('_BayesComposition_predictRcppMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
-}
-
 predictRcppMVGP <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
     .Call('_BayesComposition_predictRcppMVGP', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }
 
 mcmcRcppMVGP <- function(Y, X, params, n_chain = 1L, file_name = "sim-fit") {
     .Call('_BayesComposition_mcmcRcppMVGP', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
+}
+
+predictRcppMVGPMultiplicative <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
+    .Call('_BayesComposition_predictRcppMVGPMultiplicative', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+predictRcppMVGPOlder <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
+    .Call('_BayesComposition_predictRcppMVGPOlder', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppMVGPDiag <- function(Y, X, params, n_chain = 1L, file_name = "sim-fit") {
+    .Call('_BayesComposition_mcmcRcppMVGPDiag', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
 }
 
 mvrnormArma <- function(n, mu, Sigma) {

@@ -31,8 +31,10 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const arma::rowvec& D_current,
                   const arma::rowvec& c_current,
                   const arma::mat& R_tau_current,
-                  const arma::rowvec& Z_current, const double& phi_current,
-                  const double& sigma_current, const arma::mat C_inv_current,
+                  const arma::rowvec& Z_current,
+                  const double& phi_current,
+                  const arma::mat& R_tau_epsilon_current,
+                  const arma::mat C_inv_current,
                   const int& N_pred, const int& d,
                   const std::string& file_name,
                   const std::string& corr_function) {
@@ -43,10 +45,9 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 
   // calculate log likelihood of current value
   double current_log_like = 0.0;
-  for (int j=0; j<d; j++) {
-    current_log_like += R::dnorm(y_current(j), mu_current(j) + zeta_current(j),
-                                 sigma_current, true);
-  }
+
+  current_log_like += dMVN(y_current.t(), mu_current + zeta_current.t(),
+                           R_tau_epsilon_current, true);
 
   double hh = log(R::runif(0.0, 1.0)) + current_log_like;
 
@@ -79,10 +80,10 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 
     // calculate log likelihood of proposed value
     double proposal_log_like = 0.0;
-    for (int j=0; j<d; j++) {
-      proposal_log_like += R::dnorm(y_current(j), mu_current(j) + zeta_proposal(j),
-                                    sigma_current, true);
-    }
+
+    current_log_like += dMVN(y_current.t(), mu_current + zeta_proposal.t(),
+                             R_tau_epsilon_current, true);
+
     if (proposal_log_like > hh) {
       // proposal is on the slice
       X_ess = X_proposal;
@@ -116,8 +117,10 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 }
 
 // [[Rcpp::export]]
-List predictRcppMVGPOlder (const arma::mat& Y_pred, const double mu_X,
-                      const double s2_X, const double min_X,
+List predictRcppMVGP (const arma::mat& Y_pred,
+                      const double mu_X,
+                      const double s2_X,
+                      const double min_X,
                       const double max_X,
                       List params,
                       List samples,
@@ -165,9 +168,17 @@ List predictRcppMVGPOlder (const arma::mat& Y_pred, const double mu_X,
   arma::mat R = R_fit.subcube(0, 0, 0, 0, d-1, d-1);
   arma::cube R_tau_fit = as<cube>(samples["R_tau"]);
   arma::mat R_tau = R_tau_fit.subcube(0, 0, 0, 0, d-1, d-1);
-  arma::vec sigma2_fit = as<vec>(samples["sigma2"]);
-  double sigma2 = sigma2_fit(0);
-  double sigma = sqrt(sigma2);
+
+  arma::mat tau2_epsilon_fit = as<mat>(samples["tau2_epsilon"]);
+  arma::vec tau2_epsilon = tau2_epsilon_fit.row(0).t();
+  arma::cube R_epsilon_fit = as<cube>(samples["R_epsilon"]);
+  arma::mat R_epsilon = R_epsilon_fit.subcube(0, 0, 0, 0, d-1, d-1);
+  arma::cube R_tau_epsilon_fit = as<cube>(samples["R_tau_epsilon"]);
+  arma::mat R_tau_epsilon = R_tau_epsilon_fit.subcube(0, 0, 0, 0, d-1, d-1);
+
+  //   arma::vec sigma2_fit = as<vec>(samples["sigma2"]);
+  // double sigma2 = sigma2_fit(0);
+  // double sigma = sqrt(sigma2);
 
   // default to message output every 5000 iterations
   int message = 5000;
@@ -288,7 +299,11 @@ List predictRcppMVGPOlder (const arma::mat& Y_pred, const double mu_X,
       tau2 = tau2_fit.row(k).t();
       R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
       R_tau = R_tau_fit.subcube(k, 0, 0, k, d-1, d-1);
-      sigma2 = sigma2_fit(k);
+
+      tau2_epsilon = tau2_epsilon_fit.row(k).t();
+      R_epsilon = R_epsilon_fit.subcube(k, 0, 0, k, d-1, d-1);
+      R_tau_epsilon = R_tau_epsilon_fit.subcube(k, 0, 0, k, d-1, d-1);
+      // sigma2 = sigma2_fit(k);
       zeta_pred = Z * eta_star * R_tau;
 
 
@@ -311,10 +326,8 @@ List predictRcppMVGPOlder (const arma::mat& Y_pred, const double mu_X,
             double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
             // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
             // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
-            for (int j=0; j<d; j++) {
-              mh1 += R::dnorm(Y_pred(i, j), mu(j) + zeta_proposal(j), sigma, true);
-              mh2 += R::dnorm(Y_pred(i, j), mu(j) + zeta_pred(i, j), sigma, true);
-            }
+            mh1 += dMVN(Y_pred.row(i).t(), mu + zeta_proposal, R_tau_epsilon, true);
+            mh2 += dMVN(Y_pred.row(i).t(), mu + zeta_pred.row(i).t(), R_tau_epsilon, true);
             double mh = exp(mh1-mh2);
             if (mh > R::runif(0.0, 1.0)) {
               X_pred = X_star;
@@ -335,7 +348,7 @@ List predictRcppMVGPOlder (const arma::mat& Y_pred, const double mu_X,
             double X_prior = R::rnorm(0.0, s_X);
             Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
                                        mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
-                                       R_tau, Z.row(i), phi, sigma,
+                                       R_tau, Z.row(i), phi, R_tau_epsilon,
                                        C_inv, N_pred, d, file_name,
                                        corr_function);
             X_pred(i) = as<double>(ess_out["X"]);

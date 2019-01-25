@@ -194,7 +194,7 @@ for (i in 1:N) {
 
 if (file.exists(paste0(save_directory, "other-models-cv.RData"))) {
   load(file=paste0(save_directory, "other-models-cv.RData"))
-loa} else {
+} else {
   pred_mu_WA <- c()
   pred_sd_WA <- c()
   pred_mu_MLRC <- c()

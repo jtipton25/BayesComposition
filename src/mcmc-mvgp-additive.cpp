@@ -24,11 +24,11 @@ using namespace arma;
 Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
                          const arma::vec& eta_star_prior,
                          const arma::mat& y_current,
-                         const arma::mat& mu_mat_current,
+                         const arma::vec& mu_current,
                          const arma::mat& zeta_current,
                          const arma::mat& R_tau_current,
                          const arma::mat& Z_current,
-                         const double& sigma2_current,
+                         const arma::mat& R_tau_epsilon_current,
                          const int& N, const int& d, const int& j,
                          const std::string& file_name, const int& n_chain) {
   // eta_star_current is the current value of the joint multivariate predictive process
@@ -39,8 +39,14 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
   // calculate log likelihood of current value
   double current_log_like = 0.0;
 
-  current_log_like = - 0.5 * as_scalar(accu(pow(y_current -
-    mu_mat_current - zeta_current, 2.0)) / sigma2_current);
+  for (int i=0; i<N; i++) {
+    current_log_like += dMVN(
+      y_current.row(i).t(),
+      mu_current + zeta_current.row(i).t(),
+      R_tau_epsilon_current,
+      true);
+  }
+
   double hh = log(R::runif(0.0, 1.0)) + current_log_like;
 
   // Setup a bracket and pick a first proposal
@@ -58,15 +64,21 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
   // Slice sampling loop
   while (test) {
     // compute proposal for angle difference and check to see if it is on the slice
-    arma::vec eta_star_proposal_col = eta_star_current.col(j) * cos(phi_angle) +
+    arma::vec eta_star_proposal_col =
+      eta_star_current.col(j) * cos(phi_angle) +
       eta_star_prior * sin(phi_angle);
     eta_star_proposal.col(j) = eta_star_proposal_col;
     arma::mat zeta_proposal = Z_current * eta_star_proposal * R_tau_current;
 
     // calculate log likelihood of proposed value
     double proposal_log_like = 0.0;
-    proposal_log_like = - 0.5 * as_scalar(accu(pow(y_current -
-      mu_mat_current - zeta_proposal, 2.0)) / sigma2_current);
+    for (int i=0; i<N; i++) {
+      proposal_log_like += dMVN(
+        y_current.row(i).t(),
+        mu_current + zeta_proposal.row(i).t(),
+        R_tau_epsilon_current,
+        true);
+    }
 
     if (proposal_log_like > hh) {
       // proposal is on the slice
@@ -78,11 +90,11 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
     } else if (phi_angle < 0.0) {
       phi_angle_min = phi_angle;
     } else {
-      Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable n");
+      Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable \n");
       // set up output messages
       std::ofstream file_out;
       file_out.open(file_name, std::ios_base::app);
-      file_out << "Bug - ESS for X shrunk to current position on chain " << n_chain << "n";
+      file_out << "Bug - ESS for X shrunk to current position on chain " << n_chain << "\n";
       // close output file
       file_out.close();
     }
@@ -95,9 +107,11 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
 }
 
 // [[Rcpp::export]]
-List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
-                   int n_chain=1,
-                   std::string file_name="sim-fit") {
+List mcmcRcppMVGP (const arma::mat& Y,
+                   const arma::vec& X,
+                   List params,
+                   int n_chain = 1,
+                   std::string file_name = "sim-fit") {
   // arma::mat& R, arma::vec& tau2, double& phi, double& sigma2,
   // arma::mat& eta_star,
 
@@ -136,10 +150,10 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
     phi_U = as<double>(params["phi_U"]);
   }
   // default half cauchy scale for generalized Wishart Gaussian Process nugget
-  double s2_sigma2 = 5.0;
-  if (params.containsElementNamed("s2_sigma2")) {
-    s2_sigma2 = as<double>(params["s2_sigma2"]);
-  }
+  // double s2_sigma2 = 5.0;
+  // if (params.containsElementNamed("s2_sigma2")) {
+  //   s2_sigma2 = as<double>(params["s2_sigma2"]);
+  // }
   // default half cauchy scale for Covariance diagonal variance tau2
   double A_s2 = 25.0;
   if (params.containsElementNamed("A_s2")) {
@@ -166,11 +180,11 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   if (params.containsElementNamed("phi_tune")) {
     phi_tune = as<double>(params["phi_tune"]);
   }
-  // default sigma2 tuning parameter standard deviation of 0.25
-  double sigma2_tune = 0.25;
-  if (params.containsElementNamed("sigma2_tune")) {
-    sigma2_tune = as<double>(params["sigma2_tune"]);
-  }
+  // // default sigma2 tuning parameter standard deviation of 0.25
+  // double sigma2_tune = 0.25;
+  // if (params.containsElementNamed("sigma2_tune")) {
+  //   sigma2_tune = as<double>(params["sigma2_tune"]);
+  // }
   // default mu tuning parameter
   double lambda_mu_tune = 1.0 / pow(3.0, 0.8);
   if (params.containsElementNamed("lambda_mu_tune")) {
@@ -198,6 +212,16 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   double lambda_xi_tune = 1.0 / pow(3.0, 0.8);
   if (params.containsElementNamed("lambda_xi_tune")) {
     lambda_xi_tune = as<double>(params["lambda_xi_tune"]);
+  }
+  // default tau2 tuning parameter
+  double lambda_tau2_epsilon_tune = 0.25;
+  if (params.containsElementNamed("lambda_tau2_epsilon_tune")) {
+    lambda_tau2_epsilon_tune = as<double>(params["lambda_tau2_epsilon_tune"]);
+  }
+  // default xi tuning parameter
+  double lambda_xi_epsilon_tune = 1.0 / pow(3.0, 0.8);
+  if (params.containsElementNamed("lambda_xi_epsilon_tune")) {
+    lambda_xi_epsilon_tune = as<double>(params["lambda_xi_epsilon_tune"]);
   }
 
   // predictive process knots
@@ -238,14 +262,14 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   if (params.containsElementNamed("sample_mu")) {
     sample_mu = as<bool>(params["sample_mu"]);
   }
-  bool sample_mu_mh = false;
+  bool sample_mu_mh = true;
   if (params.containsElementNamed("sample_mu_mh")) {
     sample_mu_mh = as<bool>(params["sample_mu_mh"]);
   }
-  arma::mat mu_mat(N, d);
-  for (int i=0; i<N; i++) {
-    mu_mat.row(i) = mu.t();
-  }
+  // arma::mat mu_mat(N, d);
+  // for (int i=0; i<N; i++) {
+  //   mu_mat.row(i) = mu.t();
+  // }
 
   //
   // Default for Gaussian process range parameter phi
@@ -261,20 +285,56 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   }
 
   //
-  // Regression error parameter sigma2
+  // Obeservation error parameters
   //
 
-  double lambda_sigma2 = R::rgamma(0.5, 1.0 / s2_sigma2);
-  double sigma2 = std::min(R::rgamma(0.5, 1.0 / lambda_sigma2), 5.0);
-  if (params.containsElementNamed("sigma2")) {
-    sigma2 = as<double>(params["sigma2"]);
+  arma::vec lambda_tau2_epsilon(d);
+  arma::vec tau2_epsilon(d);
+  for (int j=0; j<d; j++) {
+    tau2_epsilon(j) = std::max(std::min(R::rgamma(0.5, 1.0), 5.0), 1.0);
   }
-  double sigma = sqrt(sigma2);
-  bool sample_sigma2 = true;
-  if (params.containsElementNamed("sample_sigma2")) {
-    sample_sigma2 = as<bool>(params["sample_sigma2"]);
+  arma::vec tau_epsilon = sqrt(tau2_epsilon);
+  if (params.containsElementNamed("tau2_epsilon")) {
+    tau2_epsilon = as<vec>(params["tau2_epsilon"]);
+    tau_epsilon= sqrt(tau2_epsilon);
+  }
+  bool sample_tau2_epsilon = true;
+  if (params.containsElementNamed("sample_tau2_epsilon")) {
+    sample_tau2_epsilon = as<bool>(params["sample_tau2_epsilon"]);
   }
 
+  //
+  // Default LKJ hyperparameter xi_epsilon for observation error covariance
+  //
+
+  arma::vec eta_vec(B);
+  int idx_eta = 0;
+  for (int j=0; j<(d-1); j++) {
+    for (int k=0; k<(d-j-1); k++) {
+      eta_vec(idx_eta+k) = eta + (d - 2.0 - j) / 2.0;
+    }
+    idx_eta += d-j-1;
+  }
+  arma::vec xi_epsilon(B);
+  for (int b=0; b<B; b++) {
+    xi_epsilon(b) = 2.0 * R::rbeta(eta_vec(b), eta_vec(b)) - 1.0;
+  }
+  arma::vec xi_epsilon_tilde(B);
+  if (params.containsElementNamed("xi_epsilon")) {
+    xi_epsilon = as<vec>(params["xi_epsilon"]);
+  }
+  for (int b=0; b<B; b++) {
+    xi_epsilon_tilde(b) = 0.5 * (xi_epsilon(b) + 1.0);
+  }
+  bool sample_xi_epsilon = true;
+  if (params.containsElementNamed("sample_xi_epsilon")) {
+    sample_xi_epsilon = as<bool>(params["sample_xi_epsilon"]);
+  }
+
+  Rcpp::List R_epsilon_out = makeRLKJ(xi_epsilon, d, true, true);
+  double log_jacobian_epsilon = as<double>(R_epsilon_out["log_jacobian"]);
+  arma::mat R_epsilon = as<mat>(R_epsilon_out["R"]);
+  arma::mat R_tau_epsilon = R_epsilon * diagmat(tau_epsilon);
   //
   // Gaussian process sill parameter tau2 and hyperprior lambda_tau2
   //
@@ -332,14 +392,14 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   // Default LKJ hyperparameter xi
   //
 
-  arma::vec eta_vec(B);
-  int idx_eta = 0;
-  for (int j=0; j<(d-1); j++) {
-    for (int k=0; k<(d-j-1); k++) {
-      eta_vec(idx_eta+k) = eta + (d - 2.0 - j) / 2.0;
-    }
-    idx_eta += d-j-1;
-  }
+  // arma::vec eta_vec(B);
+  // int idx_eta = 0;
+  // for (int j=0; j<(d-1); j++) {
+  //   for (int k=0; k<(d-j-1); k++) {
+  //     eta_vec(idx_eta+k) = eta + (d - 2.0 - j) / 2.0;
+  //   }
+  //   idx_eta += d-j-1;
+  // }
   arma::vec xi(B);
   for (int b=0; b<B; b++) {
     xi(b) = 2.0 * R::rbeta(eta_vec(b), eta_vec(b)) - 1.0;
@@ -374,9 +434,14 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   arma::cube Z_save(n_save, N, N_knots, arma::fill::zeros);
   arma::cube R_save(n_save, d, d, arma::fill::zeros);
   arma::cube R_tau_save(n_save, d, d, arma::fill::zeros);
-  arma::vec sigma2_save(n_save, arma::fill::zeros);
   arma::mat tau2_save(n_save, d, arma::fill::zeros);
-  // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
+
+  arma::cube R_epsilon_save(n_save, d, d, arma::fill::zeros);
+  arma::cube R_tau_epsilon_save(n_save, d, d, arma::fill::zeros);
+  arma::mat tau2_epsilon_save(n_save, d, arma::fill::zeros);
+  arma::mat xi_epsilon_save(n_save, B, arma::fill::zeros);
+
+    // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
   // arma::vec s2_tau2_save(n_save, arma::fill::zeros);
   arma::vec phi_save(n_save, arma::fill::zeros);
   arma::mat xi_save(n_save, B, arma::fill::zeros);
@@ -384,8 +449,6 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   // initialize tuning
   double phi_accept = 0.0;
   double phi_accept_batch = 0.0;
-  double sigma2_accept = 0.0;
-  double sigma2_accept_batch = 0.0;
   // double s2_tau2_accept = 0.0;
   // double s2_tau2_accept_batch = 0.0;
   // double s2_tau2_tune = 1.0;
@@ -399,11 +462,24 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   arma::mat tau2_batch(50, d, arma::fill::zeros);
   arma::mat Sigma_tau2_tune(d, d, arma::fill::eye);
   arma::mat Sigma_tau2_tune_chol = chol(Sigma_tau2_tune);
+
+  double tau2_epsilon_accept = 0.0;
+  double tau2_epsilon_accept_batch = 0.0;
+  arma::mat tau2_epsilon_batch(50, d, arma::fill::zeros);
+  arma::mat Sigma_tau2_epsilon_tune(d, d, arma::fill::eye);
+  arma::mat Sigma_tau2_epsilon_tune_chol = chol(Sigma_tau2_epsilon_tune);
+
   double xi_accept = 0.0;
   double xi_accept_batch = 0.0;
   arma::mat xi_batch(50, B, arma::fill::zeros);
   arma::mat Sigma_xi_tune(B, B, arma::fill::eye);
   arma::mat Sigma_xi_tune_chol = chol(Sigma_xi_tune);
+
+  double xi_epsilon_accept = 0.0;
+  double xi_epsilon_accept_batch = 0.0;
+  arma::mat xi_epsilon_batch(50, B, arma::fill::zeros);
+  arma::mat Sigma_xi_epsilon_tune(B, B, arma::fill::eye);
+  arma::mat Sigma_xi_epsilon_tune_chol = chol(Sigma_xi_epsilon_tune);
   arma::vec eta_star_accept(d, arma::fill::zeros);
   arma::vec eta_star_accept_batch(d, arma::fill::zeros);
   arma::cube eta_star_batch(50, N_knots, d, arma::fill::zeros);
@@ -428,7 +504,7 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
   // Start MCMC chain
   for (int k=0; k<n_adapt; k++) {
     if ((k+1) % message == 0) {
-      Rprintf("MCMC Adaptive Iteration %dn", k+1);
+      Rprintf("MCMC Adaptive Iteration %d \n", k+1);
       // set up output messages
       std::ofstream file_out;
       file_out.open(file_name, std::ios_base::app);
@@ -448,12 +524,16 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       if (sample_mu_mh) {
         // sample using MH
         arma::vec mu_star = mvrnormArmaVecChol(mu, lambda_mu_tune * Sigma_mu_tune_chol);
-        arma::mat mu_mat_star(N, d);
+        // arma::mat mu_mat_star(N, d);
+        // for (int i=0; i<N; i++) {
+        //   mu_mat_star.row(i) = mu_star.t();
+        // }
+        double mh1 = 0.0;
+        double mh2 = 0.0;
         for (int i=0; i<N; i++) {
-          mu_mat_star.row(i) = mu_star.t();
+          mh1 += dMVN(Y.row(i).t(), mu_star + zeta.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
         }
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat_star - zeta, 2)) / sigma2);
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
         for (int j=0; j<d; j++) {
           mh1 += R::dnorm(mu_star(j), mu_mu, s_mu, true);
           mh2 += R::dnorm(mu(j), mu_mu, s_mu, true);
@@ -461,7 +541,7 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         double mh = exp(mh1-mh2);
         if (mh > R::runif(0.0, 1.0)) {
           mu = mu_star;
-          mu_mat = mu_mat_star;
+          // mu_mat = mu_mat_star;
           mu_accept_batch += 1.0 / 50;
         }
         mu_batch.row(k % 50) = mu.t();
@@ -471,13 +551,14 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
                          Sigma_mu_tune, Sigma_mu_tune_chol);
         }
       } else {
-        // sample mu using Gibbs
-        arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
-        arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
-        mu = rMVNArma(A, b);
-        for (int i=0; i<N; i++) {
-          mu_mat.row(i) = mu.t();
-        }
+        // Fix this later if needed...
+        // // sample mu using Gibbs
+        // arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
+        // arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
+        // mu = rMVNArma(A, b);
+        // for (int i=0; i<N; i++) {
+        //   mu_mat.row(i) = mu.t();
+        // }
       }
     }
 
@@ -494,10 +575,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::mat c_star = exp(- D / phi_star);
         arma::mat Z_star = c_star * C_inv_star;
         arma::mat zeta_star = Z_star * eta_star * R_tau;
-        double mh1 = 0.0 -  // uniform prior
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2);
-        double mh2 = 0.0 -  // uniform prior
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
+        double mh1 = 0.0;  // uniform prior
+        double mh2 = 0.0;  // uniform prior
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int j=0; j<d; j++) {
           mh1 += dMVN(eta_star.col(j), zero_knots, C_chol_star, true);
           mh2 += dMVN(eta_star.col(j), zero_knots, C_chol, true);
@@ -535,11 +618,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
                                lambda_eta_star_tune(j) * Sigma_eta_star_tune_chol.slice(j));
           arma::mat zeta_star = Z * eta_star_star * R_tau;
           // double mh1 = dMVNChol(eta_star_star.col(j), zero_knots, C_chol, true) -
-          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true) -
-            0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2.0)) / sigma2);
-          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true) -
-            // double mh2 = dMVNChol(eta_star.col(j), zero_knots, C_chol, true) -
-            0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2.0)) / sigma2);
+          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true);
+          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true);
+          for (int i=0; i<N; i++) {
+            mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+            mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+          }
           double mh = exp(mh1-mh2);
           if (mh > R::runif(0.0, 1.0)) {
             eta_star = eta_star_star;
@@ -560,8 +644,8 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_eta_star(eta_star,  eta_star_prior,
-                                                     Y, mu_mat, zeta, R_tau, Z,
-                                                     sigma2, N, d, j,
+                                                     Y, mu, zeta, R_tau, Z,
+                                                     R_tau_epsilon, N, d, j,
                                                      file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
@@ -569,38 +653,6 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       }
     }
 
-    //
-    // sample sigma2
-    //
-
-    if (sample_sigma2) {
-      double sigma2_star = sigma2 + R::rnorm(0.0, sigma2_tune);
-      if (sigma2_star > 0.0) {
-        double sigma_star = sqrt(sigma2_star);
-        double mh1 = R::dgamma(sigma2_star, 0.5, 1.0 / lambda_sigma2, true);
-        double mh2 = R::dgamma(sigma2, 0.5, 1.0 / lambda_sigma2, true);
-        mh1 += - N * d * log(sigma_star) -
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2_star);
-        mh2 += - N * d * log(sigma) -
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
-        double mh = exp(mh1-mh2);
-        if (mh > R::runif(0.0, 1.0)) {
-          sigma2 = sigma2_star;
-          sigma = sigma_star;
-          sigma2_accept_batch += 1.0 / 50.0;
-        }
-      }
-      // update tuning
-      if ((k+1) % 50 == 0){
-        updateTuning(k, sigma2_accept_batch, sigma2_tune);
-      }
-    }
-
-    //
-    // sample lambda_sigma2
-    //
-
-    lambda_sigma2 = R::rgamma(1.0, 1.0 / (s2_sigma2 + sigma2));
 
     //
     // sample tau2
@@ -614,10 +666,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::vec tau_star = sqrt(tau2_star);
         arma::mat R_tau_star = R * diagmat(tau_star);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2) +
-          sum(log_tau2_star);
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2) +
-          sum(log(tau2));
+        double mh1 = sum(log(tau2_star));      // jacobian of log-scale proposal
+        double mh2 = sum(log(tau2));           // jacobian of log-scale proposal
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int j=0; j<d; j++) {
           mh1 += d_half_cauchy(tau2_star(j), s2_tau2, true);
           mh2 += d_half_cauchy(tau2(j), s2_tau2, true);
@@ -689,12 +743,13 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::mat R_tau_star = R_star * diagmat(tau);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
         double log_jacobian_star = as<double>(R_out["log_jacobian"]);
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2) +
-          // Jacobian adjustment
-          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2) +
-          // Jacobian adjustment
-          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+        double mh1 = sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star)); // Jacobian adjustment
+
+        double mh2 = sum(log(xi_tilde) + log(ones_B - xi_tilde));          // Jacobian adjustment
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int b=0; b<B; b++) {
           mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
           mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
@@ -721,21 +776,109 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       }
     }
 
+    //
+    // sample tau2_epsilon
+    //
+
+    if (sample_tau2_epsilon) {
+      arma::vec log_tau2_epsilon_star = mvrnormArmaVecChol(log(tau2_epsilon),
+                                                   lambda_tau2_epsilon_tune * Sigma_tau2_epsilon_tune_chol);
+      arma::vec tau2_epsilon_star = exp(log_tau2_epsilon_star);
+      if (all(tau2_epsilon_star > 0.0)) {
+        arma::vec tau_epsilon_star = sqrt(tau2_epsilon_star);
+        arma::mat R_tau_epsilon_star = R_epsilon * diagmat(tau_epsilon_star);
+        double mh1 = sum(log(tau2_epsilon_star));      // jacobian of log-scale proposal
+        double mh2 = sum(log(tau2_epsilon));           // jacobian of log-scale proposal
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon_star, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
+        for (int j=0; j<d; j++) {
+          mh1 += d_half_cauchy(tau2_epsilon_star(j), s2_tau2, true);
+          mh2 += d_half_cauchy(tau2_epsilon(j), s2_tau2, true);
+          // mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
+          // mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          tau2_epsilon = tau2_epsilon_star;
+          tau_epsilon = tau_epsilon_star;
+          R_tau_epsilon = R_tau_epsilon_star;
+          tau2_epsilon_accept_batch += 1.0 / 50.0;
+        }
+      }
+
+      tau2_epsilon_batch.row(k % 50) = log(tau2_epsilon).t();
+      // update tuning
+      if ((k+1) % 50 == 0){
+        updateTuningMV(k, tau2_epsilon_accept_batch, lambda_tau2_epsilon_tune, tau2_epsilon_batch,
+                       Sigma_tau2_epsilon_tune, Sigma_tau2_epsilon_tune_chol);
+      }
+    }
+
+
+    //
+    // sample xi_epsilon - MH
+    //
+
+    if (sample_xi_epsilon) {
+      arma::vec logit_xi_epsilon_tilde_star = mvrnormArmaVecChol(logit(xi_epsilon_tilde),
+                                                         lambda_xi_epsilon_tune * Sigma_xi_epsilon_tune_chol);
+      arma::vec xi_epsilon_tilde_star = expit(logit_xi_epsilon_tilde_star);
+      arma::vec xi_epsilon_star = 2.0 * xi_epsilon_tilde_star - 1.0;
+      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+      if (all(xi_epsilon_star > -1.0) && all(xi_epsilon_star < 1.0)) {
+        Rcpp::List R_epsilon_out = makeRLKJ(xi_epsilon_star, d, true, true);
+        arma::mat R_epsilon_star = as<mat>(R_epsilon_out["R"]);
+        arma::mat R_tau_epsilon_star = R_epsilon_star * diagmat(tau_epsilon);
+        double log_jacobian_epsilon_star = as<double>(R_epsilon_out["log_jacobian"]);
+        double mh1 = sum(log(xi_epsilon_tilde_star) + log(ones_B - xi_epsilon_tilde_star)); // Jacobian adjustment
+
+        double mh2 = sum(log(xi_epsilon_tilde) + log(ones_B - xi_epsilon_tilde));          // Jacobian adjustment
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon_star, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
+        for (int b=0; b<B; b++) {
+          mh1 += R::dbeta(0.5 * (xi_epsilon_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          mh2 += R::dbeta(0.5 * (xi_epsilon(b) + 1.0), eta_vec(b), eta_vec(b), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          xi_epsilon_tilde = xi_epsilon_tilde_star;
+          xi_epsilon = xi_epsilon_star;
+          R_epsilon = R_epsilon_star;
+          R_tau_epsilon = R_tau_epsilon_star;
+          log_jacobian_epsilon = log_jacobian_epsilon_star;
+          xi_epsilon_accept_batch += 1.0 / 50.0;
+        }
+      }
+      // xi_batch.row(k % 50) = xi.t();
+      xi_epsilon_batch.row(k % 50) = logit(xi_epsilon_tilde).t();
+
+      // update tuning
+      if ((k+1) % 50 == 0){
+        updateTuningMV(k, xi_epsilon_accept_batch, lambda_xi_epsilon_tune, xi_epsilon_batch,
+                       Sigma_xi_epsilon_tune, Sigma_xi_epsilon_tune_chol);
+      }
+    }
+
+
   }
 
-  Rprintf("Starting MCMC fit for chain %d, running for %d iterations n",
+  Rprintf("Starting MCMC fit for chain %d, running for %d iterations \n",
           n_chain, n_mcmc);
   // set up output messages
   file_out.open(file_name, std::ios_base::app);
   file_out << "Starting MCMC fit for chain " << n_chain <<
-    ", running for " << n_mcmc << " iterations n";
+    ", running for " << n_mcmc << " iterations \n";
   // close output file
   file_out.close();
 
   // Start MCMC chain
   for (int k=0; k<n_mcmc; k++) {
     if ((k+1) % message == 0) {
-      Rprintf("MCMC Fitting Iteration %dn", k+1);
+      Rprintf("MCMC Fitting Iteration %d \n", k+1);
       // set up output messages
       std::ofstream file_out;
       file_out.open(file_name, std::ios_base::app);
@@ -755,12 +898,16 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       if (sample_mu_mh) {
         // sample using MH
         arma::vec mu_star = mvrnormArmaVecChol(mu, lambda_mu_tune * Sigma_mu_tune_chol);
-        arma::mat mu_mat_star(N, d);
+        // arma::mat mu_mat_star(N, d);
+        // for (int i=0; i<N; i++) {
+        //   mu_mat_star.row(i) = mu_star.t();
+        // }
+        double mh1 = 0.0;
+        double mh2 = 0.0;
         for (int i=0; i<N; i++) {
-          mu_mat_star.row(i) = mu_star.t();
+          mh1 += dMVN(Y.row(i).t(), mu_star + zeta.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
         }
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat_star - zeta, 2)) / sigma2);
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
         for (int j=0; j<d; j++) {
           mh1 += R::dnorm(mu_star(j), mu_mu, s_mu, true);
           mh2 += R::dnorm(mu(j), mu_mu, s_mu, true);
@@ -768,23 +915,18 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         double mh = exp(mh1-mh2);
         if (mh > R::runif(0.0, 1.0)) {
           mu = mu_star;
-          mu_mat = mu_mat_star;
-          mu_accept += 1.0 / n_mcmc;
-        }
-        mu_batch.row(k % 50) = mu.t();
-        // update tuning
-        if ((k+1) % 50 == 0){
-          updateTuningMV(k, mu_accept_batch, lambda_mu_tune, mu_batch,
-                         Sigma_mu_tune, Sigma_mu_tune_chol);
+          // mu_mat = mu_mat_star;
+          mu_accept += 1.0 / 50;
         }
       } else {
-        // sample mu using Gibbs
-        arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
-        arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
-        mu = rMVNArma(A, b);
-        for (int i=0; i<N; i++) {
-          mu_mat.row(i) = mu.t();
-        }
+        // Fix this later if needed...
+        // // sample mu using Gibbs
+        // arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
+        // arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
+        // mu = rMVNArma(A, b);
+        // for (int i=0; i<N; i++) {
+        //   mu_mat.row(i) = mu.t();
+        // }
       }
     }
 
@@ -801,10 +943,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::mat c_star = exp(- D / phi_star);
         arma::mat Z_star = c_star * C_inv_star;
         arma::mat zeta_star = Z_star * eta_star * R_tau;
-        double mh1 = 0.0 -  // uniform prior
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2);
-        double mh2 = 0.0 -  // uniform prior
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
+        double mh1 = 0.0;  // uniform prior
+        double mh2 = 0.0;  // uniform prior
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int j=0; j<d; j++) {
           mh1 += dMVN(eta_star.col(j), zero_knots, C_chol_star, true);
           mh2 += dMVN(eta_star.col(j), zero_knots, C_chol, true);
@@ -826,23 +970,24 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
     }
 
     //
-    // sample eta_star
+    // sample eta_star - MH
     //
 
     if (sample_eta_star) {
       if (sample_eta_star_mh) {
-        // Metroplois-Hastings
         for (int j=0; j<d; j++) {
           arma::mat eta_star_star = eta_star;
-          eta_star_star.col(j) += mvrnormArmaVecChol(zero_knots,
-                            lambda_eta_star_tune(j) * Sigma_eta_star_tune_chol.slice(j));
+          eta_star_star.col(j) +=
+            mvrnormArmaVecChol(zero_knots,
+                               lambda_eta_star_tune(j) * Sigma_eta_star_tune_chol.slice(j));
           arma::mat zeta_star = Z * eta_star_star * R_tau;
-          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true) -
-            // double mh1 = dMVNChol(eta_star_star.col(j), zero_knots, C_chol, true) -
-            0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2.0)) / sigma2);
-          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true) -
-            // double mh2 = dMVNChol(eta_star.col(j), zero_knots, C_chol, true) -
-            0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2.0)) / sigma2);
+          // double mh1 = dMVNChol(eta_star_star.col(j), zero_knots, C_chol, true) -
+          double mh1 = dMVN(eta_star_star.col(j), zero_knots, C_chol, true);
+          double mh2 = dMVN(eta_star.col(j), zero_knots, C_chol, true);
+          for (int i=0; i<N; i++) {
+            mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+            mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+          }
           double mh = exp(mh1-mh2);
           if (mh > R::runif(0.0, 1.0)) {
             eta_star = eta_star_star;
@@ -850,48 +995,27 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
             eta_star_accept(j) += 1.0 / n_mcmc;
           }
         }
+        // update tuning
+        eta_star_batch.subcube(k % 50, 0, 0, k % 50, N_knots-1, d-1) = eta_star;
+        // update tuning
+        if ((k+1) % 50 == 0){
+          updateTuningMVMat(k, eta_star_accept_batch, lambda_eta_star_tune,
+                            eta_star_batch, Sigma_eta_star_tune,
+                            Sigma_eta_star_tune_chol);
+        }
       } else {
         // elliptical slice sampler
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_eta_star(eta_star,  eta_star_prior,
-                                                     Y, mu_mat, zeta, R_tau, Z,
-                                                     sigma2, N, d, j,
+                                                     Y, mu, zeta, R_tau, Z,
+                                                     R_tau_epsilon, N, d, j,
                                                      file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
         }
       }
     }
-
-    //
-    // sample sigma2
-    //
-
-    if (sample_sigma2) {
-      double sigma2_star = sigma2 + R::rnorm(0.0, sigma2_tune);
-      if (sigma2_star > 0.0) {
-        double sigma_star = sqrt(sigma2_star);
-        double mh1 = R::dgamma(sigma2_star, 0.5, 1.0 / lambda_sigma2, true);
-        double mh2 = R::dgamma(sigma2, 0.5, 1.0 / lambda_sigma2, true);
-        mh1 += - N * d * log(sigma_star) -
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2_star);
-        mh2 += - N * d * log(sigma) -
-          0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2);
-        double mh = exp(mh1-mh2);
-        if (mh > R::runif(0.0, 1.0)) {
-          sigma2 = sigma2_star;
-          sigma = sigma_star;
-          sigma2_accept += 1.0 / n_mcmc;
-        }
-      }
-    }
-
-    //
-    // sample lambda_sigma2
-    //
-
-    lambda_sigma2 = R::rgamma(1.0, 1.0 / (s2_sigma2 + sigma2));
 
     //
     // sample tau2
@@ -905,10 +1029,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::vec tau_star = sqrt(tau2_star);
         arma::mat R_tau_star = R * diagmat(tau_star);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2) +
-          sum(log_tau2_star);
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2) +
-          sum(log(tau2));
+        double mh1 = sum(log(tau2_star));      // jacobian of log-scale proposal
+        double mh2 = sum(log(tau2));           // jacobian of log-scale proposal
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int j=0; j<d; j++) {
           mh1 += d_half_cauchy(tau2_star(j), s2_tau2, true);
           mh2 += d_half_cauchy(tau2(j), s2_tau2, true);
@@ -926,33 +1052,6 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       }
     }
 
-    // //
-    // // sample lambda_tau2
-    // //
-    //
-    // for (int j=0; j<d; j++) {
-    //   lambda_tau2(j) = R::rgamma(1.0, 1.0 / (s2_tau2 + tau2(j)));
-    // }
-    //
-    // //
-    // // sample s2_tau2
-    // //
-    //
-    //   double s2_tau2_star = s2_tau2 + R::rnorm(0.0, s2_tau2_tune);
-    //   if (s2_tau2_star > 0.0 && s2_tau2_star < A_s2) {
-    //     double mh1 = 0.0;
-    //     double mh2 = 0.0;
-    //     for (int j=0; j<d; j++){
-    //       mh1 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2_star, true);
-    //       mh2 += R::dgamma(lambda_tau2(j), 0.5, 1.0 / s2_tau2, true);
-    //     }
-    //     double mh = exp(mh1-mh2);
-    //     if (mh > R::runif(0.0, 1.0)) {
-    //       s2_tau2 = s2_tau2_star;
-    //       s2_tau2_accept += 1.0 / n_mcmc;
-    //     }
-    //   }
-
     //
     // sample xi - MH
     //
@@ -969,12 +1068,12 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
         arma::mat R_tau_star = R_star * diagmat(tau);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
         double log_jacobian_star = as<double>(R_out["log_jacobian"]);
-        double mh1 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta_star, 2)) / sigma2) +
-          // Jacobian adjustment
-          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
-        double mh2 = - 0.5 * as_scalar(accu(pow(Y - mu_mat - zeta, 2)) / sigma2) +
-          // Jacobian adjustment
-          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+        double mh1 = sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star)); // Jacobian adjustment
+        double mh2 = sum(log(xi_tilde) + log(ones_B - xi_tilde));          // Jacobian adjustment
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
         for (int b=0; b<B; b++) {
           mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
           mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
@@ -993,6 +1092,77 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
     }
 
     //
+    // sample tau2_epsilon
+    //
+
+    if (sample_tau2_epsilon) {
+      arma::vec log_tau2_epsilon_star = mvrnormArmaVecChol(log(tau2_epsilon),
+                                                           lambda_tau2_epsilon_tune * Sigma_tau2_epsilon_tune_chol);
+      arma::vec tau2_epsilon_star = exp(log_tau2_epsilon_star);
+      if (all(tau2_epsilon_star > 0.0)) {
+        arma::vec tau_epsilon_star = sqrt(tau2_epsilon_star);
+        arma::mat R_tau_epsilon_star = R_epsilon * diagmat(tau_epsilon_star);
+        double mh1 = sum(log(tau2_epsilon_star));      // jacobian of log-scale proposal
+        double mh2 = sum(log(tau2_epsilon));           // jacobian of log-scale proposal
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon_star, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
+        for (int j=0; j<d; j++) {
+          mh1 += d_half_cauchy(tau2_epsilon_star(j), s2_tau2, true);
+          mh2 += d_half_cauchy(tau2_epsilon(j), s2_tau2, true);
+          // mh1 += R::dgamma(tau2_star(j), 0.5, 1.0 / lambda_tau2(j), true);
+          // mh2 += R::dgamma(tau2(j), 0.5, 1.0 / lambda_tau2(j), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          tau2_epsilon = tau2_epsilon_star;
+          tau_epsilon = tau_epsilon_star;
+          R_tau_epsilon = R_tau_epsilon_star;
+          tau2_epsilon_accept += 1.0 / n_mcmc;
+        }
+      }
+    }
+
+
+    //
+    // sample xi_epsilon - MH
+    //
+
+    if (sample_xi_epsilon) {
+      arma::vec logit_xi_epsilon_tilde_star = mvrnormArmaVecChol(logit(xi_epsilon_tilde),
+                                                                 lambda_xi_epsilon_tune * Sigma_xi_epsilon_tune_chol);
+      arma::vec xi_epsilon_tilde_star = expit(logit_xi_epsilon_tilde_star);
+      arma::vec xi_epsilon_star = 2.0 * xi_epsilon_tilde_star - 1.0;
+      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+      if (all(xi_epsilon_star > -1.0) && all(xi_epsilon_star < 1.0)) {
+        Rcpp::List R_epsilon_out = makeRLKJ(xi_epsilon_star, d, true, true);
+        arma::mat R_epsilon_star = as<mat>(R_epsilon_out["R"]);
+        arma::mat R_tau_epsilon_star = R_epsilon_star * diagmat(tau_epsilon);
+        double log_jacobian_epsilon_star = as<double>(R_epsilon_out["log_jacobian"]);
+        double mh1 = sum(log(xi_epsilon_tilde_star) + log(ones_B - xi_epsilon_tilde_star)); // Jacobian adjustment
+        double mh2 = sum(log(xi_epsilon_tilde) + log(ones_B - xi_epsilon_tilde));          // Jacobian adjustment
+        for (int i=0; i<N; i++) {
+          mh1 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon_star, true);
+          mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
+        }
+        for (int b=0; b<B; b++) {
+          mh1 += R::dbeta(0.5 * (xi_epsilon_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          mh2 += R::dbeta(0.5 * (xi_epsilon(b) + 1.0), eta_vec(b), eta_vec(b), true);
+        }
+        double mh = exp(mh1-mh2);
+        if (mh > R::runif(0.0, 1.0)) {
+          xi_epsilon_tilde = xi_epsilon_tilde_star;
+          xi_epsilon = xi_epsilon_star;
+          R_epsilon = R_epsilon_star;
+          R_tau_epsilon = R_tau_epsilon_star;
+          log_jacobian_epsilon = log_jacobian_epsilon_star;
+          xi_epsilon_accept += 1.0 / n_mcmc;
+        }
+      }
+    }
+
+    //
     // save variables
     //
 
@@ -1003,8 +1173,8 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       zeta_save.subcube(span(save_idx), span(), span()) = zeta;
       Omega_save.subcube(span(save_idx), span(), span()) = R.t() * R;
       phi_save(save_idx) = phi;
-      sigma2_save(save_idx) = sigma2;
       tau2_save.row(save_idx) = tau2.t();
+      tau2_epsilon_save.row(save_idx) = tau2_epsilon.t();
       // lambda_tau2_save.row(save_idx) = lambda_tau2.t();
       // s2_tau2_save(save_idx) = s2_tau2;
       c_save.subcube(span(save_idx), span(), span()) = c;
@@ -1014,6 +1184,9 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
       R_save.subcube(span(save_idx), span(), span()) = R;
       R_tau_save.subcube(span(save_idx), span(), span()) = R_tau;
       xi_save.row(save_idx) = xi.t();
+      R_epsilon_save.subcube(span(save_idx), span(), span()) = R_epsilon;
+      R_tau_epsilon_save.subcube(span(save_idx), span(), span()) = R_tau_epsilon;
+      xi_epsilon_save.row(save_idx) = xi_epsilon.t();
     }
   }
 
@@ -1044,6 +1217,14 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
     file_out << "Average acceptance rate for tau2  = " << mean(tau2_accept) <<
       " for chain " << n_chain << "\n";
   }
+  if (sample_xi_epsilon) {
+    file_out << "Average acceptance rate for xi_epsilon  = " << mean(xi_epsilon_accept) <<
+      " for chain " << n_chain << "\n";
+  }
+  if (sample_tau2_epsilon) {
+    file_out << "Average acceptance rate for tau2_epsilon  = " << mean(tau2_epsilon_accept) <<
+      " for chain " << n_chain << "\n";
+  }
   // close output file
   file_out.close();
 
@@ -1053,11 +1234,16 @@ List mcmcRcppMVGPDiag (const arma::mat& Y, const arma::vec& X, List params,
     _["zeta"] = zeta_save,
     _["Omega"] = Omega_save,
     _["phi"] = phi_save,
-    _["sigma2"] = sigma2_save,
+    // _["sigma2"] = sigma2_save,
     _["tau2"] = tau2_save,
+    _["tau2_epsilon"] = tau2_epsilon_save,
     // _["lambda_tau2"] = lambda_tau2_save,
     // _["s2_tau2"] = s2_tau2_save,
     _["R"] = R_save,
     _["R_tau"] = R_tau_save,
-    _["xi"] = xi_save);
+    _["xi_epsilon"] = xi_epsilon_save,
+    _["R_epsilon"] = R_epsilon_save,
+    _["R_tau_epsilon"] = R_tau_epsilon_save,
+    _["xi_epsilon"] = xi_epsilon_save);
+
 }

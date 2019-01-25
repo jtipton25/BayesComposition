@@ -284,13 +284,13 @@ pred_sd_WA <- sqrt((predWA$v1.boot[, 1])^2 + predWA$v2.boot[1]^2)
 ## WAPLS reconstruction - subset to deal with all zero occurrence species
 zeros_idx <- which(colSums(y_prop) == 0)
 if (length(zeros_idx) > 0) {
-  modWAPLS <- rioja::WAPLS(y_prop[, - zeros_idx], X, npls=5)
-  predWAPLS <- predict(modWAPLS, y_recon_prop[, - zeros_idx], npls=5,
+  modWAPLS <- rioja::WAPLS(y_prop[, - zeros_idx], X, npls=2)
+  predWAPLS <- predict(modWAPLS, y_recon_prop[, - zeros_idx], npls=2,
                        sse=TRUE, nboot=1000)
 } else {
   ## no data to subset
-  modWAPLS <- rioja::WAPLS(y_prop, X, npls=5)
-  predWAPLS <- predict(modWAPLS, y_recon_prop, npls=5,
+  modWAPLS <- rioja::WAPLS(y_prop, X, npls=2)
+  predWAPLS <- predict(modWAPLS, y_recon_prop, npls=2,
                        sse=TRUE, nboot=1000)      
 }
 

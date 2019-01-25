@@ -276,7 +276,7 @@ fit_compositional_data <- function(
     sfStop()
   }
   ## save the output file
-  save(out, params, file=paste0(save_directory, save_file))
+  save(out, params, file = paste0(save_directory, save_file))
 
   return(out)
 

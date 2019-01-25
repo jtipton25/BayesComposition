@@ -37,13 +37,14 @@ sim_compositional_data <- function(
   library(fields)
   library(splines)
 
-  mu <- rnorm(d, 0, 0.25)
+  # mu <- rnorm(d, 0, 0.25)
+  mu <- rnorm(d)
   if (multiplicative_correlation) {
     ## select the dth component as the reference category
     mu[d] <-0
   }
-  X <- rnorm(N, 0, 4)
-  X_pred <- rnorm(N_pred, 0, 4)
+  X <- rnorm(N, 0, 2)
+  X_pred <- rnorm(N_pred, 0, 2)
   ## initialized values in global environment before conditional statements
   zeta <- matrix(0, N, d)
   zeta_pred <- matrix(0, N_pred, d)
@@ -104,18 +105,25 @@ sim_compositional_data <- function(
       ## simulate from the full-rank model
       D <- as.matrix(rdist(X))
       D_pred <- as.matrix(rdist(X_pred))
-      if (correlation_fun == "gaussian") {
-        C <- exp(- D^2 / phi) #+ diag(n_knots)* 1e-12
-        C_pred <- exp(- D_pred^2 / phi) #+ diag(n_knots)* 1e-12
-      } else if (correlation_fun == "exponential") {
-        C <- exp(- D / phi) #+ diag(n_knots) * 1e-12
-        C_pred <- exp(- D_pred / phi) #+ diag(n_knots) * 1e-12
+      D_full <- as.matrix(rdist(c(X, X_pred)))
+      if (correlation_function == "gaussian") {
+        C_full <- exp( - D_full^2 / phi) #+ diag(n_knots)* 1e-12
+        # C <- exp(- D^2 / phi) #+ diag(n_knots)* 1e-12
+        # C_pred <- exp(- D_pred^2 / phi) #+ diag(n_knots)* 1e-12
+      } else if (correlation_function== "exponential") {
+        C_full <- exp( - D_full / phi) #+ diag(n_knots)* 1e-12
+        # C <- exp(- D / phi) #+ diag(n_knots) * 1e-12
+        # C_pred <- exp(- D_pred / phi) #+ diag(n_knots) * 1e-12
       } else {
-        stop ('Only "gaussian" and "exponential" covariance functions are supported')
+        stop ('Only "gaussian" and "exponential" covariance functions are currently supported')
       }
-      zeta <- t(mvnfast::rmvn(d, rep(0, N), chol(C), isChol=TRUE))
-      zeta_prec <- t(mvnfast::rmvn(d, rep(0, N_pred), chol(C_pred), isChol=TRUE))
+      zeta_full <- t(mvnfast::rmvn(d, rep(0, N+N_pred), chol(C_full), isChol=TRUE))
+      zeta <- zeta_full[1:N, ]
+      zeta_pred <- zeta_full[(N + 1):(N + N_pred), ]
+      # zeta <- t(mvnfast::rmvn(d, rep(0, N), chol(C), isChol=TRUE))
+      # zeta_pred <- t(mvnfast::rmvn(d, rep(0, N_pred), chol(C_pred), isChol=TRUE))
       if (likelihood=="multi-logit") {
+        ## fix the dth category as a reference category
         zeta[, d] <- rep(0, N)
         zeta_pred[, d] <- rep(0, N_pred)
       }
@@ -175,6 +183,7 @@ sim_compositional_data <- function(
       out_multiplicative <- make_correlation_matrix(d-1, eta=1)
       R_multiplicative <- out_multiplicative$R
       xi_multiplicative <- out_multiplicative$xi
+      # tau_multiplicative <- rgamma(d-1, 5, 2)
       tau_multiplicative <- rgamma(d-1, 5, 5)
       R_tau_multiplicative <- R_multiplicative %*% diag(tau_multiplicative)
       zeta[, 1:(d-1)] <- zeta[, 1:(d-1)] %*% R_tau_multiplicative
@@ -183,6 +192,7 @@ sim_compositional_data <- function(
       out_multiplicative <- make_correlation_matrix(d, eta=1)
       R_multiplicative <- out_multiplicative$R
       xi_multiplicative <- out_multiplicative$xi
+      # tau_multiplicative <- rgamma(d, 5, 2)
       tau_multiplicative <- rgamma(d, 5, 5)
       R_tau_multiplicative <- R_multiplicative %*% diag(tau_multiplicative)
       zeta <- zeta %*% R_tau_multiplicative

@@ -243,23 +243,27 @@ N_pred <- dim(y_recon)[1]
 X_post <- matrix(0, n_iter, N_pred)
 X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
 alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
-
-for (k in 1:n_iter) {
-  if (k %% 10 == 0) {
-    message("Iteration ", k, " out of ", n_iter)
-  }
-  for (ii in 1:n_grid) {
-    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+if (file.exists(here("mvgp-test", "fit-bummer-stan-predictions.RData"))) {
+  load(here("mvgp-test", "fit-bummer-stan-predictions.RData"))
+} else {
+  for (k in 1:n_iter) {
+    if (k %% 10 == 0) {
+      message("Iteration ", k, " out of ", n_iter)
     }
-  for (i in 1:N_pred) {
-    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
-    pis <- pis / sum(pis)
-    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
-  }
-}    
-
-## convert to original scale
-X_post <- X_post * sd_X + mean_X
+    for (ii in 1:n_grid) {
+      alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+    }
+    for (i in 1:N_pred) {
+      pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
+      pis <- pis / sum(pis)
+      X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+    }
+  }    
+  ## convert to original scale
+  X_post <- X_post * sd_X + mean_X
+  
+  save(X_post, file = here("mvgp-test", "fit-bummer-stan-predictions.RData"))
+}
 ```
 
 
@@ -312,7 +316,7 @@ ggplot(sim.df, aes(observation, covariate)) +
 ```{r advi-model}
 if (file.exists(here("mvgp-test", "fit-bummer-advi.RData"))) {
   ## Load MCMC run
-  load(here("mvgp-test", "fit-bummer-advi"))
+  load(here("mvgp-test", "fit-bummer-advi.RData"))
 } else {
   ## Long running MCMC 
   library(rstan)
@@ -347,11 +351,6 @@ layout(matrix(1:3, 3, 1))
 matplot(e$a, type='l')
 matplot(e$mu, type='l')
 matplot(e$sigma2, type='l')
-```
-
-
-```{r}
-matplot(e$alpha, type='l')
 ```
 
 
@@ -433,30 +432,35 @@ X_post <- matrix(0, n_iter, N_pred)
 X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
 alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
 
-for (k in 1:n_iter) {
-  if (k %% 10 == 0) {
-    message("Iteration ", k, " out of ", n_iter)
-  }
-  # alpha_pred[k, , ] <- sapply(1:n_grid, function(ii) { 
-  #   pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20) 
-  # })
-  for (ii in 1:n_grid) {
-    alpha_pred[k, ii, ] <- pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20)
-  }
-  # X_post[k, ] <- sapply(1:N_pred, function(i) {
-  #   pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
-  #   pis <- pis / sum(pis)
-  #   return(sample(X_grid, size=1, replace=FALSE, prob=pis))
-  # })
-  for (i in 1:N_pred) {
-    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
-    pis <- pis / sum(pis)
-    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
-  }
-}    
-
-## convert to original scale
-X_post <- X_post * sd_X + mean_X
+if (file.exists(here("mvgp-test", "fit-bummer-advi-predictions.RData"))) {
+  load(here("mvgp-test", "fit-bummer-advi-predictions.RData"))
+} else {
+  for (k in 1:n_iter) {
+    if (k %% 10 == 0) {
+      message("Iteration ", k, " out of ", n_iter)
+    }
+    # alpha_pred[k, , ] <- sapply(1:n_grid, function(ii) { 
+    #   pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20) 
+    # })
+    for (ii in 1:n_grid) {
+      alpha_pred[k, ii, ] <- pmax(e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ]), 1e-20)
+    }
+    # X_post[k, ] <- sapply(1:N_pred, function(i) {
+    #   pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
+    #   pis <- pis / sum(pis)
+    #   return(sample(X_grid, size=1, replace=FALSE, prob=pis))
+    # })
+    for (i in 1:N_pred) {
+      pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mean_X, sd_X)
+      pis <- pis / sum(pis)
+      X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+    }
+  }    
+  
+  ## convert to original scale
+  X_post <- X_post * sd_X + mean_X
+  save(X_post, file = here("mvgp-test", "fit-bummer-advi-predictions.RData"))
+}
 ```
 
 
