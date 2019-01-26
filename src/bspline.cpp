@@ -122,10 +122,10 @@ arma::mat bs_cpp (const arma::vec& x, const int& df,
       B_mat(idx(i), K_uvec(i)) = 1.0;
     }
   }
-  if(intercept == FALSE) {
-    return(B_mat.cols(span(1, K-1)));
-  } else {
+  if(intercept) {
     return(B_mat);
+  } else {
+    return(B_mat.cols(span(1, K-1)));
   }
 }
 
