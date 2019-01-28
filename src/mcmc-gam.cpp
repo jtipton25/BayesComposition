@@ -87,7 +87,7 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     // adjust for non-zero mean
     arma::vec X_tilde(1);
     X_tilde(0) = X_proposal + mu_X;
-    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, true,
+    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, false,
                                        rangeX);
     arma::rowvec alpha_proposal = (Xbs_proposal * beta_current);
 
@@ -254,8 +254,9 @@ List mcmcRcppGAM (const arma::mat& Y, const arma::vec& X_input, List params,
   // rangeX(1)=maxX+1*s_X;   // buffer for the basis beyond the range of the
   // observational data
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
-  knots = knots.subvec(1, df-degree-1);
-  arma::mat Xbs = bs_cpp(X, df, knots, degree, true, rangeX);
+  knots = knots.subvec(1, df-degree);
+  // knots = knots.subvec(1, df-degree-1);
+  arma::mat Xbs = bs_cpp(X, df, knots, degree, false, rangeX);
 
   arma::vec count(N);
   for (int i=0; i<N; i++) {
@@ -453,8 +454,8 @@ List mcmcRcppGAM (const arma::mat& Y, const arma::vec& X_input, List params,
           arma::mat alpha_star = alpha;
           X_star(i) = R::rnorm(X(i), X_tune(i-N_obs));
           arma::mat Xbs_star = Xbs;
-          Xbs_star.row(i) = bs_cpp(X_star.row(i), df, knots, degree, true, rangeX);
-          // arma::mat Xbs_star = bs_cpp(X_star, df, knots, degree, true, rangeX);
+          Xbs_star.row(i) = bs_cpp(X_star.row(i), df, knots, degree, false, rangeX);
+          // arma::mat Xbs_star = bs_cpp(X_star, df, knots, degree, false, rangeX);
           alpha_star.row(i) = (Xbs_star.row(i) * beta);
           arma::rowvec Y_row = Y.row(i);
           double mh1 = mhX(X_star(i), mu_X, s2_X, alpha_star.row(i), Y_row, sigma, d);
@@ -588,8 +589,8 @@ List mcmcRcppGAM (const arma::mat& Y, const arma::vec& X_input, List params,
           arma::mat alpha_star = alpha;
           X_star(i) = R::rnorm(X(i), X_tune(i-N_obs));
           arma::mat Xbs_star = Xbs;
-          Xbs_star.row(i) = bs_cpp(X_star.row(i), df, knots, degree, true, rangeX);
-          // arma::mat Xbs_star = bs_cpp(X_star, df, knots, degree, true, rangeX);
+          Xbs_star.row(i) = bs_cpp(X_star.row(i), df, knots, degree, false, rangeX);
+          // arma::mat Xbs_star = bs_cpp(X_star, df, knots, degree, false, rangeX);
           alpha_star.row(i) = (Xbs_star.row(i) * beta);
           arma::rowvec Y_row = Y.row(i);
           double mh1 = mhX(X_star(i), mu_X, s2_X, alpha_star.row(i), Y_row, sigma, d);

@@ -227,6 +227,7 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   // rangeX(1)=maxX+1*s_X;   // buffer for the basis beyond the range of the
   // observational data
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
+  // knots = knots.subvec(1, df-degree);
   knots = knots.subvec(1, df-degree-1);
 
   arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, true, rangeX);

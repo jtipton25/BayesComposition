@@ -10,7 +10,6 @@ using namespace arma;
 
 //
 // Author: John Tipton
-//
 // Created 11.29.2016
 // Last updated 06.09.2017
 
@@ -22,8 +21,10 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
-                  const double& mu_X, const arma::vec& X_knots,
+Rcpp::List ess_X (const double& X_current,
+                  const double& X_prior,
+                  const double& mu_X,
+                  const arma::vec& X_knots,
                   const arma::rowvec& y_current,
                   const arma::vec& mu_current,
                   const arma::mat& eta_star_current,
@@ -35,7 +36,8 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const double& phi_current,
                   const arma::mat& R_tau_epsilon_current,
                   const arma::mat C_inv_current,
-                  const int& N_pred, const int& d,
+                  const int& N_pred,
+                  const int& d,
                   const std::string& file_name,
                   const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process
@@ -44,10 +46,10 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   // Z_current is the current predictive process linear
 
   // calculate log likelihood of current value
-  double current_log_like = 0.0;
-
-  current_log_like += dMVN(y_current.t(), mu_current + zeta_current.t(),
-                           R_tau_epsilon_current, true);
+  double current_log_like = dMVN(y_current.t(),
+                                 mu_current + zeta_current.t(),
+                                 R_tau_epsilon_current,
+                                 true);
 
   double hh = log(R::runif(0.0, 1.0)) + current_log_like;
 
@@ -69,8 +71,9 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   while (test) {
     // compute proposal for angle difference and check to see if it is on the slice
     double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
+    // adjust for non-zero mean
     double X_tilde = X_proposal + mu_X;
-    arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2)).t();
+    arma::rowvec D_proposal = sqrt(pow(X_tilde - X_knots, 2.0)).t();
     if (corr_function == "gaussian") {
       D_proposal = pow(D_proposal, 2.0);
     }
@@ -79,10 +82,17 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     arma::rowvec zeta_proposal = Z_proposal * eta_star_current * R_tau_current;
 
     // calculate log likelihood of proposed value
-    double proposal_log_like = 0.0;
-
-    current_log_like += dMVN(y_current.t(), mu_current + zeta_proposal.t(),
-                             R_tau_epsilon_current, true);
+    double proposal_log_like = dMVN(y_current.t(),
+                                    mu_current + zeta_proposal.t(),
+                                    R_tau_epsilon_current,
+                                    true);
+    // Rcout << "hh = " << hh << "\n";
+    // Rcout << "cll = " << current_log_like << "\n";
+    // Rcout << "pll = " << proposal_log_like << "\n";
+    // Rcout << "xc = " << X_current << "\n";
+    // Rcout << "xp = " << X_proposal << "\n";
+    // Rcout << "zc = " << zeta_current << "\n";
+    // Rcout << "zp = " << zeta_proposal << "\n";
 
     if (proposal_log_like > hh) {
       // proposal is on the slice
@@ -97,6 +107,16 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     } else if (phi_angle < 0.0) {
       phi_angle_min = phi_angle;
     } else {
+      // Rcout << "hh = " << hh << "\n";
+      // Rcout << "cll = " << current_log_like << "\n";
+      // Rcout << "pll = " << proposal_log_like << "\n";
+      // Rcout << "xc = " << std::setprecision(24)  << X_current << "\n";
+      // Rcout << "xp = " << std::setprecision(24) << X_proposal << "\n";
+      // Rcout << "cc = " << c_current << "\n";
+      // Rcout << "cp = " << c_proposal << "\n";
+      // Rcout << "zc = " << zeta_current << "\n";
+      // Rcout << "zp = " << zeta_proposal << "\n";
+
       Rprintf("Bug detected - ESS for X shrunk to current position and still not acceptable \n");
       // set up output messages
       std::ofstream file_out;
@@ -104,10 +124,12 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
       file_out << "Bug - ESS for X shrunk to current position and still not acceptable \n";
       // close output file
       file_out.close();
+      test = false;
     }
     // Propose new angle difference
     phi_angle = R::runif(0.0, 1.0) * (phi_angle_max - phi_angle_min) + phi_angle_min;
   }
+
   return(Rcpp::List::create(
       _["X"] = X_ess,
       _["D"] = D_ess,
@@ -120,8 +142,8 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 List predictRcppMVGP (const arma::mat& Y_pred,
                       const double mu_X,
                       const double s2_X,
-                      const double min_X,
-                      const double max_X,
+                      const double min_X, // not used...
+                      const double max_X, // not used...
                       List params,
                       List samples,
                       std::string file_name="mvgp-predict") {
@@ -154,10 +176,6 @@ List predictRcppMVGP (const arma::mat& Y_pred,
   arma::mat mu_fit = as<mat>(samples["mu"]);
   int n_samples = mu_fit.n_rows;
   arma::vec mu = mu_fit.row(0).t();
-  arma::mat mu_mat(N_pred, d);
-  for (int i=0; i<N_pred; i++) {
-    mu_mat.row(i) = mu.t();
-  }
   arma::vec phi_fit = as<vec>(samples["phi"]);
   double phi = phi_fit(0);
   arma::cube eta_star_fit = as<cube>(samples["eta_star"]);
@@ -181,7 +199,7 @@ List predictRcppMVGP (const arma::mat& Y_pred,
   // double sigma = sqrt(sigma2);
 
   // default to message output every 5000 iterations
-  int message = 5000;
+  int message = 1000;
   if (params.containsElementNamed("message")) {
     message = as<int>(params["message"]);
   }
@@ -197,7 +215,7 @@ List predictRcppMVGP (const arma::mat& Y_pred,
     sample_X = as<bool>(params["sample_X"]);
   }
   // Default sampling of missing covariate using ESS
-  bool sample_X_mh = false;
+  bool sample_X_mh = true;
   if (params.containsElementNamed("sample_X_mh")) {
     sample_X_mh = as<bool>(params["sample_X_mh"]);
   }
@@ -212,7 +230,7 @@ List predictRcppMVGP (const arma::mat& Y_pred,
     corr_function = as<std::string>(params["corr_function"]);
   }
 
-  arma::mat D = makeDistARMA(X_pred, X_knots);
+  arma::mat D = makeDistARMA(X_pred + mu_X, X_knots);
   arma::mat D_knots = makeDistARMA(X_knots, X_knots);
   if (corr_function == "gaussian") {
     D = pow(D, 2.0);
@@ -285,16 +303,18 @@ List predictRcppMVGP (const arma::mat& Y_pred,
     // sample X
     //
 
+
     // run for 10 iterations per posterior sample to "guarantee" convergence
     for (int j=0; j<n_rep; j++) {
+
       // Load MCMC estimated parameters
       mu = mu_fit.row(k).t();
       phi = phi_fit(k);
       C = exp(- D_knots / phi);
       C_chol = chol(C);
       C_inv = inv_sympd(C);
-      c = exp( - D / phi);
-      Z = c * C_inv;
+      // c = exp( - D / phi);
+      // Z = c * C_inv;
       eta_star = eta_star_fit.subcube(k, 0, 0, k, N_knots-1, d-1);
       tau2 = tau2_fit.row(k).t();
       R = R_fit.subcube(k, 0, 0, k, d-1, d-1);
@@ -305,7 +325,6 @@ List predictRcppMVGP (const arma::mat& Y_pred,
       R_tau_epsilon = R_tau_epsilon_fit.subcube(k, 0, 0, k, d-1, d-1);
       // sigma2 = sigma2_fit(k);
       zeta_pred = Z * eta_star * R_tau;
-
 
       if (sample_X) {
         if (sample_X_mh) {
@@ -326,7 +345,7 @@ List predictRcppMVGP (const arma::mat& Y_pred,
             double mh2 = R::dnorm(X_pred(i), 0.0, s_X, true);
             // double mh1 = R::dnorm(X_star(i), mu_X, s_X, true);
             // double mh2 = R::dnorm(X(i), mu_X, s_X, true);
-            mh1 += dMVN(Y_pred.row(i).t(), mu + zeta_proposal, R_tau_epsilon, true);
+            mh1 += dMVN(Y_pred.row(i).t(), mu + zeta_proposal.t(), R_tau_epsilon, true);
             mh2 += dMVN(Y_pred.row(i).t(), mu + zeta_pred.row(i).t(), R_tau_epsilon, true);
             double mh = exp(mh1-mh2);
             if (mh > R::runif(0.0, 1.0)) {
@@ -335,22 +354,19 @@ List predictRcppMVGP (const arma::mat& Y_pred,
               c.row(i) = c_proposal;
               Z.row(i) = Z_proposal;
               zeta_pred.row(i) = zeta_proposal;
-              X_accept_batch(i) += 1.0 / 50.0;
+              X_accept_batch(i) += 1.0 / (50.0 * n_rep);
             }
-          }
-          // update tuning
-          if ((k+1) % 50 == 0){
-            updateTuningVec(k, X_accept_batch, X_tune);
           }
         } else {
           // sample using ESS
           for (int i=0; i<N_pred; i++) {
             double X_prior = R::rnorm(0.0, s_X);
-            Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots, Y_pred.row(i),
-                                       mu, eta_star, zeta_pred.row(i), D.row(i), c.row(i),
-                                       R_tau, Z.row(i), phi, R_tau_epsilon,
-                                       C_inv, N_pred, d, file_name,
-                                       corr_function);
+            Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, X_knots,
+                                       Y_pred.row(i), mu, eta_star,
+                                       zeta_pred.row(i), D.row(i),
+                                       c.row(i), R_tau, Z.row(i), phi,
+                                       R_tau_epsilon, C_inv, N_pred,
+                                       d, file_name, corr_function);
             X_pred(i) = as<double>(ess_out["X"]);
             D.row(i) = as<rowvec>(ess_out["D"]);
             c.row(i) = as<rowvec>(ess_out["c"]);
@@ -360,6 +376,15 @@ List predictRcppMVGP (const arma::mat& Y_pred,
         }
       }
     }
+    if (sample_X) {
+      if (sample_X_mh) {
+        // update tuning if using MH
+        if ((k+1) % 50 == 0){
+          updateTuningVec(k, X_accept_batch, X_tune);
+        }
+      }
+    }
+
 
     //
     // save variables

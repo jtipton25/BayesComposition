@@ -29,8 +29,11 @@ Rcpp::List ess_eta_star (const arma::mat& eta_star_current,
                          const arma::mat& R_tau_current,
                          const arma::mat& Z_current,
                          const arma::mat& R_tau_epsilon_current,
-                         const int& N, const int& d, const int& j,
-                         const std::string& file_name, const int& n_chain) {
+                         const int& N,
+                         const int& d,
+                         const int& j,
+                         const std::string& file_name,
+                         const int& n_chain) {
   // eta_star_current is the current value of the joint multivariate predictive process
   // prior_sample is a sample from the prior joing multivariate predictive process
   // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
@@ -129,15 +132,19 @@ List mcmcRcppMVGP (const arma::mat& Y,
   arma::vec ones_B(B, arma::fill::ones);
 
   // default normal prior for overall mean mu
-  double mu_mu = 0.0;
+  arma::vec mu_mu(d, arma::fill::zeros);
   if (params.containsElementNamed("mu_mu")) {
-    mu_mu = as<double>(params["mu_mu"]);
+    mu_mu = as<vec>(params["mu_mu"]);
   }
   // default prior for overall mean mu
   double s2_mu = 100.0;
   if (params.containsElementNamed("s2_mu")) {
     s2_mu = as<double>(params["s2_mu"]);
   }
+  arma::mat Sigma_mu(d, d, arma::fill::eye);
+  Sigma_mu *= s2_mu;
+  arma::mat Sigma_mu_inv = inv_sympd(Sigma_mu);
+
   double s_mu = sqrt(s2_mu);
   // default uniform prior for Gaussian Process range
   double phi_L = 0.0001;
@@ -262,7 +269,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
   if (params.containsElementNamed("sample_mu")) {
     sample_mu = as<bool>(params["sample_mu"]);
   }
-  bool sample_mu_mh = true;
+  bool sample_mu_mh = false;
   if (params.containsElementNamed("sample_mu_mh")) {
     sample_mu_mh = as<bool>(params["sample_mu_mh"]);
   }
@@ -441,7 +448,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
   arma::mat tau2_epsilon_save(n_save, d, arma::fill::zeros);
   arma::mat xi_epsilon_save(n_save, B, arma::fill::zeros);
 
-    // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
+  // arma::mat lambda_tau2_save(n_save, d, arma::fill::zeros);
   // arma::vec s2_tau2_save(n_save, arma::fill::zeros);
   arma::vec phi_save(n_save, arma::fill::zeros);
   arma::mat xi_save(n_save, B, arma::fill::zeros);
@@ -535,8 +542,8 @@ List mcmcRcppMVGP (const arma::mat& Y,
           mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
         }
         for (int j=0; j<d; j++) {
-          mh1 += R::dnorm(mu_star(j), mu_mu, s_mu, true);
-          mh2 += R::dnorm(mu(j), mu_mu, s_mu, true);
+          mh1 += R::dnorm(mu_star(j), mu_mu(j), s_mu, true);
+          mh2 += R::dnorm(mu(j), mu_mu(j), s_mu, true);
         }
         double mh = exp(mh1-mh2);
         if (mh > R::runif(0.0, 1.0)) {
@@ -551,11 +558,13 @@ List mcmcRcppMVGP (const arma::mat& Y,
                          Sigma_mu_tune, Sigma_mu_tune_chol);
         }
       } else {
+        arma::mat Sigma_epsilon = R_tau_epsilon.t() * R_tau_epsilon;
+        arma::mat Sigma_epsilon_inv = inv_sympd(Sigma_epsilon);
         // Fix this later if needed...
         // // sample mu using Gibbs
-        // arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
-        // arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
-        // mu = rMVNArma(A, b);
+        arma::mat A = N * Sigma_epsilon_inv + Sigma_mu_inv;
+        arma::vec b = colSums((Y - zeta) * Sigma_epsilon_inv) + Sigma_mu_inv * mu_mu;
+        mu = rMVNArma(A, b);
         // for (int i=0; i<N; i++) {
         //   mu_mat.row(i) = mu.t();
         // }
@@ -742,9 +751,9 @@ List mcmcRcppMVGP (const arma::mat& Y,
         arma::mat R_star = as<mat>(R_out["R"]);
         arma::mat R_tau_star = R_star * diagmat(tau);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
+
         double log_jacobian_star = as<double>(R_out["log_jacobian"]);
         double mh1 = sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star)); // Jacobian adjustment
-
         double mh2 = sum(log(xi_tilde) + log(ones_B - xi_tilde));          // Jacobian adjustment
         for (int i=0; i<N; i++) {
           mh1 += dMVN(Y.row(i).t(), mu + zeta_star.row(i).t(), R_tau_epsilon, true);
@@ -782,7 +791,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
 
     if (sample_tau2_epsilon) {
       arma::vec log_tau2_epsilon_star = mvrnormArmaVecChol(log(tau2_epsilon),
-                                                   lambda_tau2_epsilon_tune * Sigma_tau2_epsilon_tune_chol);
+                                                           lambda_tau2_epsilon_tune * Sigma_tau2_epsilon_tune_chol);
       arma::vec tau2_epsilon_star = exp(log_tau2_epsilon_star);
       if (all(tau2_epsilon_star > 0.0)) {
         arma::vec tau_epsilon_star = sqrt(tau2_epsilon_star);
@@ -823,7 +832,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
 
     if (sample_xi_epsilon) {
       arma::vec logit_xi_epsilon_tilde_star = mvrnormArmaVecChol(logit(xi_epsilon_tilde),
-                                                         lambda_xi_epsilon_tune * Sigma_xi_epsilon_tune_chol);
+                                                                 lambda_xi_epsilon_tune * Sigma_xi_epsilon_tune_chol);
       arma::vec xi_epsilon_tilde_star = expit(logit_xi_epsilon_tilde_star);
       arma::vec xi_epsilon_star = 2.0 * xi_epsilon_tilde_star - 1.0;
       // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
@@ -909,21 +918,23 @@ List mcmcRcppMVGP (const arma::mat& Y,
           mh2 += dMVN(Y.row(i).t(), mu + zeta.row(i).t(), R_tau_epsilon, true);
         }
         for (int j=0; j<d; j++) {
-          mh1 += R::dnorm(mu_star(j), mu_mu, s_mu, true);
-          mh2 += R::dnorm(mu(j), mu_mu, s_mu, true);
+          mh1 += R::dnorm(mu_star(j), mu_mu(j), s_mu, true);
+          mh2 += R::dnorm(mu(j), mu_mu(j), s_mu, true);
         }
         double mh = exp(mh1-mh2);
         if (mh > R::runif(0.0, 1.0)) {
           mu = mu_star;
           // mu_mat = mu_mat_star;
-          mu_accept += 1.0 / 50;
+          mu_accept += 1.0 / n_mcmc;
         }
       } else {
+        arma::mat Sigma_epsilon = R_tau_epsilon.t() * R_tau_epsilon;
+        arma::mat Sigma_epsilon_inv = inv_sympd(Sigma_epsilon);
         // Fix this later if needed...
         // // sample mu using Gibbs
-        // arma::mat A = N * I_d / sigma2 + I_d / s2_mu;
-        // arma::vec b = colSums(Y - zeta) / sigma2 + mu_mu * ones_d / s2_mu;
-        // mu = rMVNArma(A, b);
+        arma::mat A = N * Sigma_epsilon_inv + Sigma_mu_inv;
+        arma::vec b = colSums((Y - zeta) * Sigma_epsilon_inv) + Sigma_mu_inv * mu_mu;
+        mu = rMVNArma(A, b);
         // for (int i=0; i<N; i++) {
         //   mu_mat.row(i) = mu.t();
         // }
@@ -995,14 +1006,6 @@ List mcmcRcppMVGP (const arma::mat& Y,
             eta_star_accept(j) += 1.0 / n_mcmc;
           }
         }
-        // update tuning
-        eta_star_batch.subcube(k % 50, 0, 0, k % 50, N_knots-1, d-1) = eta_star;
-        // update tuning
-        if ((k+1) % 50 == 0){
-          updateTuningMVMat(k, eta_star_accept_batch, lambda_eta_star_tune,
-                            eta_star_batch, Sigma_eta_star_tune,
-                            Sigma_eta_star_tune_chol);
-        }
       } else {
         // elliptical slice sampler
         for (int j=0; j<d; j++) {
@@ -1067,6 +1070,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
         arma::mat R_star = as<mat>(R_out["R"]);
         arma::mat R_tau_star = R_star * diagmat(tau);
         arma::mat zeta_star = Z * eta_star * R_tau_star;
+
         double log_jacobian_star = as<double>(R_out["log_jacobian"]);
         double mh1 = sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star)); // Jacobian adjustment
         double mh2 = sum(log(xi_tilde) + log(ones_B - xi_tilde));          // Jacobian adjustment
@@ -1084,8 +1088,8 @@ List mcmcRcppMVGP (const arma::mat& Y,
           xi = xi_star;
           R = R_star;
           R_tau = R_tau_star;
-          log_jacobian = log_jacobian_star;
           zeta = zeta_star;
+          log_jacobian = log_jacobian_star;
           xi_accept += 1.0 / n_mcmc;
         }
       }
@@ -1200,8 +1204,10 @@ List mcmcRcppMVGP (const arma::mat& Y,
     }
   }
   if (sample_eta_star) {
+    if (sample_eta_star_mh) {
     file_out << "Average acceptance rate for eta_star  = " << mean(eta_star_accept) <<
       " for chain " << n_chain << "\n";
+    }
   }
   if (sample_phi) {
     file_out << "Average acceptance rate for phi  = " << mean(phi_accept) <<
@@ -1241,7 +1247,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
     // _["s2_tau2"] = s2_tau2_save,
     _["R"] = R_save,
     _["R_tau"] = R_tau_save,
-    _["xi_epsilon"] = xi_epsilon_save,
+    _["xi"] = xi_save,
     _["R_epsilon"] = R_epsilon_save,
     _["R_tau_epsilon"] = R_tau_epsilon_save,
     _["xi_epsilon"] = xi_epsilon_save);

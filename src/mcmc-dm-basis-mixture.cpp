@@ -202,8 +202,9 @@ List mcmcRcppDMBasisMixture (const arma::mat& Y,
   // observational data
 
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
-  knots = knots.subvec(1, df-degree-1);
-  arma::mat Xbs = bs_cpp(X, df, knots, degree, true, rangeX);
+  knots = knots.subvec(1, df-degree);
+  // knots = knots.subvec(1, df-degree-1);
+  arma::mat Xbs = bs_cpp(X, df, knots, degree, false, rangeX);
 
   //
   // initialize values

@@ -155,7 +155,7 @@ Rcpp::List ess_X_multiplicative_additive (const double& X_current, const double&
     // adjust for non-zero mean
     arma::vec X_tilde(1);
     X_tilde(0) = X_proposal + mu_X;
-    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, true,
+    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, false,
                                        rangeX);
     arma::rowvec alpha_proposal = exp(Xbs_proposal * beta_current * R_tau_current + epsilon_current);
 
@@ -323,9 +323,10 @@ List predictRcppDMBasisMultiplicativeAdditive (const arma::mat& Y_pred, const do
   // rangeX(1)=maxX+1*s_X;   // buffer for the basis beyond the range of the
   // observational data
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
-  knots = knots.subvec(1, df-degree-1);
+  knots = knots.subvec(1, df-degree);
+  // knots = knots.subvec(1, df-degree-1);
 
-  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, true, rangeX);
+  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, false, rangeX);
 
   //
   // initialize values

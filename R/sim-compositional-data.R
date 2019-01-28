@@ -150,7 +150,7 @@ sim_compositional_data <- function(
       out_additive <- make_correlation_matrix(d-1, eta=1)
       R_additive <- out_additive$R
       xi_additive <- out_additive$xi
-      tau_additive <- rgamma(d-1, 5, 5)
+      tau_additive <- rgamma(d-1, 2, 5)
       R_tau_additive <- R_additive %*% diag(tau_additive)
       epsilon[, 1:(d-1)] <- mvnfast::rmvn(N, rep(0, d-1), R_tau_additive, isChol=TRUE)
       epsilon_pred[, 1:(d-1)] <- mvnfast::rmvn(N_pred, rep(0, d-1), R_tau_additive, isChol=TRUE)
@@ -158,7 +158,7 @@ sim_compositional_data <- function(
       out_additive <- make_correlation_matrix(d, eta=1)
       R_additive <- out_additive$R
       xi_additive <- out_additive$xi
-      tau_additive <- rgamma(d, 5, 5)
+      tau_additive <- rgamma(d, 2, 5)
       R_tau_additive <- R_additive %*% diag(tau_additive)
       epsilon <- mvnfast::rmvn(N, rep(0, d), R_tau_additive, isChol=TRUE)
       epsilon_pred <- mvnfast::rmvn(N_pred, rep(0, d), R_tau_additive, isChol=TRUE)

@@ -21,17 +21,22 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X_multiplicative (const double& X_current, const double& X_prior,
-                                 const double& mu_X, const arma::vec& X_knots,
+Rcpp::List ess_X_multiplicative (const double& X_current,
+                                 const double& X_prior,
+                                 const double& mu_X,
+                                 const arma::vec& X_knots,
                                  const arma::rowvec& y_current,
                                  const arma::rowvec& mu_current,
                                  const arma::mat& eta_star_current,
                                  const arma::rowvec& alpha_current,
                                  const arma::rowvec& D_current,
-                                 const arma::rowvec& c_current, const arma::mat& R_tau_current,
-                                 const arma::rowvec& Z_current, const double& phi_current,
+                                 const arma::rowvec& c_current,
+                                 const arma::mat& R_tau_current,
+                                 const arma::rowvec& Z_current,
+                                 const double& phi_current,
                                  const arma::mat C_inv_current,
-                                 const int& d, const double& count_double,
+                                 const int& d,
+                                 const double& count_double,
                                  const std::string& file_name,
                                  const std::string& corr_function) {
   // eta_star_current is the current value of the joint multivariate predictive process

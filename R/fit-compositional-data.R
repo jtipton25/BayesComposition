@@ -3,9 +3,7 @@ fit_compositional_data <- function(
   X,
   params,
   progress_directory     = "./",
-  progress_file         = "progress.txt",
-  save_directory        = "./",
-  save_file             = "out.RData"
+  progress_file         = "progress.txt"
 ) {
   ## y is an N by d matrix of observations
   ## N is the sample size
@@ -34,8 +32,6 @@ fit_compositional_data <- function(
   ## n_cores is the number of cores (parallel processes) to be used
   ## progress_directory is the directory where the MCMC monitoring file will be saved. must end in "/"
   ## progress_file is the name of the progress file. this file ends in ".txt"
-  ## save_directory is the directory where the MCMC samples will be saved. must end in "/"
-  ## save_file is the name of the MCMC samples file. this file ends in ".RData"
 
   library(snowfall)
   ## make sure y is a matrix
@@ -275,8 +271,6 @@ fit_compositional_data <- function(
     ## stop cluster
     sfStop()
   }
-  ## save the output file
-  save(out, params, file = paste0(save_directory, save_file))
 
   return(out)
 
