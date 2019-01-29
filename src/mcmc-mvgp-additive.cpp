@@ -172,7 +172,7 @@ List mcmcRcppMVGP (const arma::mat& Y,
     s2_tau2 = as<double>(params["s2_tau2"]);
   }
   // default xi LKJ concentation parameter of 1
-  double eta = 1.0;
+  double eta = 4.0;
   if (params.containsElementNamed("eta")) {
     eta = as<double>(params["eta"]);
   }
