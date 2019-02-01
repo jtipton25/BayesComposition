@@ -101,9 +101,14 @@ predict_compositional_data <- function(
                                                            paste0(progress_directory, progress_file))
         }
       }
+    } else if (params$function_type == "bummer") {
+      preds <- predictRcppDMBummer(y_reconstruct,
+                                   mu_X, s2_X, min_X, max_X,
+                                   params, samples,
+                                   paste0(progress_directory, progress_file))
     } else {
       ## error if function_type argument is incorrect
-      stop('only valid options for function_type are "basis" and "gaussian-process"')
+      stop('only valid options for function_type are "basis", "bummer", and "gaussian-process"')
     }
   } else {
     ## error if likelihood argument is incorrect

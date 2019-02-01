@@ -210,6 +210,14 @@ mcmcRcppDMBasis <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, fil
     .Call('_BayesComposition_mcmcRcppDMBasis', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
+predictRcppDMBummer <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "DM-predict") {
+    .Call('_BayesComposition_predictRcppDMBummer', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
+}
+
+mcmcRcppDMBummer <- function(Y, X, params, n_chain = 1L, file_name = "DM-fit") {
+    .Call('_BayesComposition_mcmcRcppDMBummer', PACKAGE = 'BayesComposition', Y, X, params, n_chain, file_name)
+}
+
 mcmcRcppDMLinear <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, file_name = "DM-fit", corr_function = "exponential") {
     .Call('_BayesComposition_mcmcRcppDMLinear', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }

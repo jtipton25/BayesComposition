@@ -154,7 +154,7 @@ fit_compositional_data <- function(
                                                         progress_file)))
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", "bummer", and "gaussian-process"')
       }
     } else if (params$likelihood == "multi-logit") {
       if (params$function_type == "linear") {
@@ -174,7 +174,7 @@ fit_compositional_data <- function(
                                                           progress_file)))
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", "bummer", and "gaussian-process"')
       }
     } else if (params$likelihood == "dirichlet-multinomial") {
       if (params$function_type == "linear") {
@@ -186,9 +186,9 @@ fit_compositional_data <- function(
         if (params$multiplicative_correlation == FALSE) {
           if (params$additive_correlation == FALSE) {
             if(params$mixture == FALSE) {
-            out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
-                                              file_name=paste0(progress_directory,
-                                                               progress_file)))
+              out <- coda::mcmc(mcmcRcppDMBasis(y, X, params, n_chain=n_chains,
+                                                file_name=paste0(progress_directory,
+                                                                 progress_file)))
             } else {
               out <- coda::mcmc(mcmcRcppDMBasisMixture(y, X, params, n_chain=n_chains,
                                                        file_name=paste0(progress_directory,
@@ -233,9 +233,13 @@ fit_compositional_data <- function(
                                                                                     progress_file)))
           }
         }
+      } else if (params$function_type == "bummer") {
+        out <- coda::mcmc(mcmcRcppDMBummer(y, X, params, n_chain=n_chains,
+                                           file_name=paste0(progress_directory,
+                                                            progress_file)))
       } else {
         ## error if function_type argument is incorrect
-        stop('only valid options for function_type are "basis", "linear", and "gaussian-process"')
+        stop('only valid options for function_type are "basis", "linear", "bummer", and "gaussian-process"')
       }
     } else {
       ## error if likelihood argument is incorrect

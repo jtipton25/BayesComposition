@@ -926,6 +926,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// predictRcppDMBummer
+List predictRcppDMBummer(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
+RcppExport SEXP _BayesComposition_predictRcppDMBummer(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y_pred(Y_predSEXP);
+    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type min_X(min_XSEXP);
+    Rcpp::traits::input_parameter< const double >::type max_X(max_XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< List >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(predictRcppDMBummer(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mcmcRcppDMBummer
+List mcmcRcppDMBummer(const arma::mat& Y, const arma::vec& X, List params, int n_chain, std::string file_name);
+RcppExport SEXP _BayesComposition_mcmcRcppDMBummer(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP file_nameSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
+    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmcRcppDMBummer(Y, X, params, n_chain, file_name));
+    return rcpp_result_gen;
+END_RCPP
+}
 // mcmcRcppDMLinear
 List mcmcRcppDMLinear(const arma::mat& Y, const arma::vec& X, List params, int n_chain, bool pool_s2_tau2, std::string file_name, std::string corr_function);
 RcppExport SEXP _BayesComposition_mcmcRcppDMLinear(SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP n_chainSEXP, SEXP pool_s2_tau2SEXP, SEXP file_nameSEXP, SEXP corr_functionSEXP) {
@@ -1670,6 +1703,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BayesComposition_mcmcRcppDMBasisMultiplicative", (DL_FUNC) &_BayesComposition_mcmcRcppDMBasisMultiplicative, 7},
     {"_BayesComposition_predictRcppDMBasis", (DL_FUNC) &_BayesComposition_predictRcppDMBasis, 8},
     {"_BayesComposition_mcmcRcppDMBasis", (DL_FUNC) &_BayesComposition_mcmcRcppDMBasis, 7},
+    {"_BayesComposition_predictRcppDMBummer", (DL_FUNC) &_BayesComposition_predictRcppDMBummer, 8},
+    {"_BayesComposition_mcmcRcppDMBummer", (DL_FUNC) &_BayesComposition_mcmcRcppDMBummer, 5},
     {"_BayesComposition_mcmcRcppDMLinear", (DL_FUNC) &_BayesComposition_mcmcRcppDMLinear, 7},
     {"_BayesComposition_predictRcppBasis", (DL_FUNC) &_BayesComposition_predictRcppBasis, 8},
     {"_BayesComposition_mcmcRcppGAM", (DL_FUNC) &_BayesComposition_mcmcRcppGAM, 5},

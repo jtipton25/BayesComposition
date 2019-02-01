@@ -31,14 +31,12 @@ using namespace arma;
 
 Rcpp::List ess_X (const double& X_current, const double& X_prior,
                   const double& mu_X,
-                  // const arma::rowvec& mu_current,
-                  const arma::mat& beta_current,
+                  const arma::vec& a_current,
+                  const arma::vec& b_current,
+                  const arma::vec& c_current,
                   const arma::rowvec& alpha_current,
                   const arma::rowvec& y_current,
-                  const arma::rowvec& Xbs_current,
-                  const arma::vec& knots,
-                  const double& d, const int& degree, const int& df,
-                  const arma::vec& rangeX, const double& count_double,
+                  const double& d, const double& count_double,
                   const std::string& file_name) {
   // const arma::mat& R_tau_current,
   //
@@ -58,7 +56,6 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 
   // set up save variables
   double X_ess = X_current;
-  arma::rowvec Xbs_ess = Xbs_current;
   arma::rowvec alpha_ess = alpha_current;
   bool test = true;
 
@@ -70,10 +67,12 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
     // adjust for non-zero mean
     arma::vec X_tilde(1);
     X_tilde(0) = X_proposal + mu_X;
-    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, false,
-                                       rangeX);
     // arma::rowvec alpha_proposal = exp(mu_current + Xbs_proposal * beta_current);
-    arma::rowvec alpha_proposal = exp(Xbs_proposal * beta_current);
+    arma::rowvec alpha_proposal(d);
+    for (int j=0; j<d; j++) {
+      alpha_proposal(j) = exp(a_current(j) -
+        pow(b_current(j) - X_proposal - mu_X, 2.0) / c_current(j));
+    }
 
     // calculate log likelihood of proposed value
     double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d,
@@ -98,7 +97,6 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
       if (proposal_log_like > hh) {
         // proposal is on the slice
         X_ess = X_proposal;
-        Xbs_ess = Xbs_proposal;
         alpha_ess = alpha_proposal;
         test = false;
 
@@ -123,7 +121,6 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   }
   return(Rcpp::List::create(
       _["X"] = X_ess,
-      _["Xbs"] = Xbs_ess,
       _["alpha"] = alpha_ess));
 }
 
@@ -132,32 +129,16 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 ///////////////////////////////////////////////////////////////////////////////
 
 // [[Rcpp::export]]
-List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
+List predictRcppDMBummer (const arma::mat& Y_pred, const double mu_X,
                          const double s2_X, const double min_X,
                          const double max_X,
                          List params,
                          List samples,
                          std::string file_name="DM-predict") {
 
-  // List mcmcRcppDMBasis (const arma::mat& Y, const arma::vec& X,
-  //                     const arma::mat& Y_pred,
-  //                     List params,
-  //                     int n_chain=1, bool pool_s2_tau2=true,
-  //                     std::string file_name="DM-fit",
-  //                     std::string corr_function="exponential") {
-
 
   // Load parameters
-  // defaults b-spline order
-  int degree = 3;
-  if (params.containsElementNamed("degree")) {
-    degree = as<int>(params["degree"]);
-  }
-  // default b-spline degrees of freedom
-  int df = 6;
-  if (params.containsElementNamed("df")) {
-    df = as<int>(params["df"]);
-  }
+
   // default output message iteration
   int message = 500;
   if (params.containsElementNamed("message")) {
@@ -174,13 +155,11 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   double d = Y_pred.n_cols;
 
   // Load MCMC estimated parameters
-  // arma::cube alpha = as<arma::cube>(samples["alpha"]);
-  // arma::mat mu_fit = as<arma::mat>(samples["mu"]);
-  arma::cube beta_fit = as<arma::cube>(samples["beta"]);
-  int n_samples = beta_fit.n_rows;
-  if (beta_fit.n_cols != df) {
-    stop("df for posterior estimates for beta not equal to df for prediction");
-  }
+  arma::mat a_fit = as<arma::mat>(samples["a"]);
+  arma::mat b_fit = as<arma::mat>(samples["b"]);
+  arma::mat c_fit = as<arma::mat>(samples["c"]);
+
+  int n_samples = a_fit.n_rows;
 
   // count - sum of counts at each site
   arma::vec count_pred(N_pred);
@@ -191,7 +170,7 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   // constant vectors
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
-  arma::vec zero_df(df, arma::fill::zeros);
+  arma::vec zeros_d(d, arma::fill::zeros);
 
   // default X tuning parameter standard deviation of 0.25
   double X_tune_tmp = 0.5;
@@ -218,36 +197,20 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
   for (int i=0; i<N_pred; i++) {
     X_pred(i) = R::rnorm(0.0, s_X);
   }
-  // double minX = as<double>(params["minX"]);
-  // double maxX = as<double>(params["maxX"]);
-  arma::vec rangeX(2);
-  rangeX(0)=min_X;
-  rangeX(1)=max_X;
-  // rangeX(0)=minX-1*s_X;   // Assuming X is mean 0 and sd 1, this gives 3 sds beyond
-  // rangeX(1)=maxX+1*s_X;   // buffer for the basis beyond the range of the
-  // observational data
-  arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
-  knots = knots.subvec(1, df-degree);
-  // knots = knots.subvec(1, df-degree-1);
-
-  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, false, rangeX);
-
   //
   // initialize values
   //
 
-  //
-  // set default, fixed parameters and turn on/off samplers for testing
-  //
+  arma::vec a = a_fit.col(0);
+  arma::vec b = b_fit.col(0);
+  arma::vec c = c_fit.col(0);
 
-  // arma::vec mu = mu_fit.row(0).t();
-  // arma::mat mu_mat(N_pred, d, arma::fill::zeros);
-  // for (int i=0; i<N_pred; i++) {
-  //   mu_mat.row(i) = mu.t();
-  // }
-  arma::mat beta = beta_fit.subcube(0, 0, 0, 0, df-1, d-1);
-  // arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
-  arma::mat alpha_pred = exp(Xbs_pred * beta);
+  arma::mat alpha_pred(N_pred, d);
+  for (int i=0; i<N_pred; i++) {
+    for (int j=0; j<d; j++) {
+      alpha_pred(i, j) = exp(a(j) - pow(b(j) - X_pred(i), 2.0) / c(j));
+    }
+  }
 
   // setup save variables
   arma::cube alpha_pred_save(n_samples, N_pred, d, arma::fill::zeros);
@@ -291,23 +254,24 @@ List predictRcppDMBasis (const arma::mat& Y_pred, const double mu_X,
 
     // run for 10 iterations per posterior sample to "guarantee" convergence
     for (int j=0; j<n_rep; j++) {
-      // arma::vec mu = mu_fit.row(0).t();
-      // arma::mat mu_mat(N_pred, d, arma::fill::zeros);
-      // for (int i=0; i<N_pred; i++) {
-      //   mu_mat.row(i) = mu.t();
-      // }
-      beta = beta_fit.subcube(k, 0, 0, k, df-1, d-1);
-      // arma::mat alpha_pred = exp(mu_mat + Xbs_pred * beta);
-      alpha_pred = exp(Xbs_pred * beta);
+
+      a = a_fit.col(k);
+      b = b_fit.col(k);
+      c = c_fit.col(k);
+
+      for (int i=0; i<N_pred; i++) {
+        for (int j=0; j<d; j++) {
+          alpha_pred(i, j) = exp(a(j) + pow(b(j) - X_pred(i), 2.0) / c(j));
+        }
+      }
+
       if (sample_X) {
         for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);
-          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, //mu.t(),
-                                     beta, alpha_pred.row(i),
-                                     Y_pred.row(i), Xbs_pred.row(i), knots, d,
-                                     degree, df, rangeX, count_pred(i), file_name);
+          Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, a, b, c,
+                                     alpha_pred.row(i), Y_pred.row(i), d,
+                                     count_pred(i), file_name);
           X_pred(i) = as<double>(ess_out["X"]);
-          Xbs_pred.row(i) = as<rowvec>(ess_out["Xbs"]);
           alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
         }
       }

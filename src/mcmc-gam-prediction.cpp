@@ -72,7 +72,7 @@ Rcpp::List ess_X (const double& X_current,
     double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
     arma::vec X_tilde(1);
     X_tilde(0) = X_proposal + mu_X;
-    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, true,
+    arma::rowvec Xbs_proposal = bs_cpp(X_tilde, df, knots, degree, false,
                                        rangeX);
     arma::rowvec alpha_proposal = exp(Xbs_proposal * beta_current);
 
@@ -174,10 +174,10 @@ List predictRcppBasis (const arma::mat& Y_pred,
   rangeX(1)=max_X;
   // observational data
   arma::vec knots = linspace(rangeX(0), rangeX(1), df-degree-1+2);
-  // knots = knots.subvec(1, df-degree);
-  knots = knots.subvec(1, df-degree-1);
+  knots = knots.subvec(1, df-degree);
+  // knots = knots.subvec(1, df-degree-1);
 
-  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, true, rangeX);
+  arma::mat Xbs_pred = bs_cpp(X_pred, df, knots, degree, false, rangeX);
   // predictive process knots
   arma::vec X_knots = as<vec>(params["X_knots"]);
   double N_knots = X_knots.n_elem;

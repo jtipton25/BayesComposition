@@ -128,8 +128,19 @@ sim_compositional_data <- function(
         zeta_pred[, d] <- rep(0, N_pred)
       }
     }
-  } else {
-    stop('only options for function_type are "basis" and "gaussian-process"')
+  }
+   else if (function_type == "bummer") {
+    a <- rnorm(d, 0, 0.75)
+    b <- rnorm(d, 0, 1)
+    c <- rgamma(d, 20, 2.5)
+    mu <- a
+    for (j in 1:d) {
+      zeta[, j] <-  - (b[j] - X)^2 / c[j]
+      zeta_pred[, j] <- - (b[j] - X_pred)^2 / c[j]
+    }
+   } else {
+     # stop('only options for function_type are "basis" and "gaussian-process"')
+     stop('only options for function_type are "basis", "bummer" and "gaussian-process"')
   }
 
   ## initialize additive components
@@ -285,6 +296,11 @@ sim_compositional_data <- function(
                   tau_additive=tau_additive,
                   R_multiplicative=R_multiplicative,
                   tau_multiplicative=tau_multiplicative))
+    } else if (function_type == "bummer") {
+      return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
+                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  a=a, b=b, c=c))
+
     } else {
       return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
                   alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
