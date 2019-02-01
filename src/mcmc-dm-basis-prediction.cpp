@@ -15,7 +15,7 @@ using namespace arma;
 // Author: John Tipton
 //
 // Created 05.15.2017
-// Last updated 05.15.2017
+// Last updated 02.01.2019
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Functions for sampling ////////////////////////////
@@ -29,7 +29,8 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
+Rcpp::List ess_X (const double& X_current,
+                  const double& X_prior,
                   const double& mu_X,
                   // const arma::rowvec& mu_current,
                   const arma::mat& beta_current,

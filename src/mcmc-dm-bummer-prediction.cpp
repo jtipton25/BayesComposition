@@ -14,8 +14,8 @@ using namespace arma;
 
 // Author: John Tipton
 //
-// Created 05.15.2017
-// Last updated 05.15.2017
+// Created 02.01.2019
+// Last updated 02.01.2019
 
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// Functions for sampling ////////////////////////////
@@ -29,20 +29,21 @@ using namespace arma;
 ///////////// Elliptical Slice Sampler for unobserved covariate X /////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-Rcpp::List ess_X (const double& X_current, const double& X_prior,
+Rcpp::List ess_X (const double& X_current,
+                  const double& X_prior,
                   const double& mu_X,
-                  const arma::vec& a_current,
-                  const arma::vec& b_current,
-                  const arma::vec& c_current,
-                  const arma::rowvec& alpha_current,
+                  const arma::rowvec& a_current,
+                  const arma::rowvec& b_current,
+                  const arma::rowvec& c_current,
                   const arma::rowvec& y_current,
                   const double& d, const double& count_double,
                   const std::string& file_name) {
-  // const arma::mat& R_tau_current,
-  //
-  //
-  //
-  //
+
+  // adjust for non-zero mean
+  arma::rowvec alpha_current(d);
+  for (int jj=0; jj<d; jj++) {
+    alpha_current(jj) = exp(a_current(jj) - pow(b_current(jj) - X_current - mu_X, 2.0) / c_current(jj));
+  }
 
   // calculate log likelihood of current value
   double current_log_like = LL_DM_row(alpha_current, y_current, d, count_double);
@@ -64,21 +65,18 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
   while (test) {
     // compute proposal for angle difference and check to see if it is on the slice
     double X_proposal = X_current * cos(phi_angle) + X_prior * sin(phi_angle);
+
     // adjust for non-zero mean
-    arma::vec X_tilde(1);
-    X_tilde(0) = X_proposal + mu_X;
-    // arma::rowvec alpha_proposal = exp(mu_current + Xbs_proposal * beta_current);
     arma::rowvec alpha_proposal(d);
-    for (int j=0; j<d; j++) {
-      alpha_proposal(j) = exp(a_current(j) -
-        pow(b_current(j) - X_proposal - mu_X, 2.0) / c_current(j));
+    for (int jj=0; jj<d; jj++) {
+      alpha_proposal(jj) = exp(a_current(jj) - pow(b_current(jj) - X_proposal - mu_X, 2.0) / c_current(jj));
     }
 
     // calculate log likelihood of proposed value
     double proposal_log_like = LL_DM_row(alpha_proposal, y_current, d,
                                          count_double);
     // control to limit alpha from getting unreasonably large
-    if (alpha_proposal.max() > pow(10, 10) ) {
+    if (alpha_proposal.max() > pow(10.0, 10) ) {
       if (phi_angle > 0.0) {
         phi_angle_max = phi_angle;
       } else if (phi_angle < 0.0) {
@@ -89,6 +87,22 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
         std::ofstream file_out;
         file_out.open(file_name, std::ios_base::app);
         file_out << "Bug - ESS for X shrunk to current position with large alpha \n";
+        // close output file
+        file_out.close();
+        test = false;
+      }
+      // control to limit alpha from getting unreasonably small
+    } else if (alpha_proposal.min() < pow(10.0, -8) ) {
+      if (phi_angle > 0.0) {
+        phi_angle_max = phi_angle;
+      } else if (phi_angle < 0.0) {
+        phi_angle_min = phi_angle;
+      } else {
+        Rprintf("Bug - ESS for X shrunk to current position with small alpha \n");
+        // set up output messages
+        std::ofstream file_out;
+        file_out.open(file_name, std::ios_base::app);
+        file_out << "Bug - ESS for X shrunk to current position with small alpha \n";
         // close output file
         file_out.close();
         test = false;
@@ -130,11 +144,11 @@ Rcpp::List ess_X (const double& X_current, const double& X_prior,
 
 // [[Rcpp::export]]
 List predictRcppDMBummer (const arma::mat& Y_pred, const double mu_X,
-                         const double s2_X, const double min_X,
-                         const double max_X,
-                         List params,
-                         List samples,
-                         std::string file_name="DM-predict") {
+                          const double s2_X, const double min_X,
+                          const double max_X,
+                          List params,
+                          List samples,
+                          std::string file_name="DM-predict") {
 
 
   // Load parameters
@@ -201,14 +215,20 @@ List predictRcppDMBummer (const arma::mat& Y_pred, const double mu_X,
   // initialize values
   //
 
-  arma::vec a = a_fit.col(0);
-  arma::vec b = b_fit.col(0);
-  arma::vec c = c_fit.col(0);
+  arma::rowvec a = a_fit.row(0);
+  arma::rowvec b = b_fit.row(0);
+  arma::rowvec c = c_fit.row(0);
 
   arma::mat alpha_pred(N_pred, d);
   for (int i=0; i<N_pred; i++) {
     for (int j=0; j<d; j++) {
-      alpha_pred(i, j) = exp(a(j) - pow(b(j) - X_pred(i), 2.0) / c(j));
+      alpha_pred(i, j) = exp(a(j) - pow(b(j) - X_pred(i) - mu_X, 2.0) / c(j));
+      if(alpha_pred(i, j) > pow(10.0, 10)) {
+        alpha_pred(i, j) = pow(10.0, 10);
+      }
+      if(alpha_pred(i, j) < pow(10.0, -8)) {
+        alpha_pred(i, j) = pow(10.0, -8);
+      }
     }
   }
 
@@ -252,24 +272,18 @@ List predictRcppDMBummer (const arma::mat& Y_pred, const double mu_X,
     // sample X - ESS
     //
 
+    a = a_fit.row(k);
+    b = b_fit.row(k);
+    c = c_fit.row(k);
+
     // run for 10 iterations per posterior sample to "guarantee" convergence
     for (int j=0; j<n_rep; j++) {
-
-      a = a_fit.col(k);
-      b = b_fit.col(k);
-      c = c_fit.col(k);
-
-      for (int i=0; i<N_pred; i++) {
-        for (int j=0; j<d; j++) {
-          alpha_pred(i, j) = exp(a(j) + pow(b(j) - X_pred(i), 2.0) / c(j));
-        }
-      }
 
       if (sample_X) {
         for (int i=0; i<N_pred; i++) {
           double X_prior = R::rnorm(0.0, s_X);
           Rcpp::List ess_out = ess_X(X_pred(i), X_prior, mu_X, a, b, c,
-                                     alpha_pred.row(i), Y_pred.row(i), d,
+                                     Y_pred.row(i), d,
                                      count_pred(i), file_name);
           X_pred(i) = as<double>(ess_out["X"]);
           alpha_pred.row(i) = as<rowvec>(ess_out["alpha"]);
@@ -282,6 +296,7 @@ List predictRcppDMBummer (const arma::mat& Y_pred, const double mu_X,
     //
 
     alpha_pred_save.subcube(span(k), span(), span()) = alpha_pred;
+    // add the mean back in
     X_save.row(k) = X_pred.t() + mu_X;
 
   }

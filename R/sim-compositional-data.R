@@ -142,7 +142,10 @@ sim_compositional_data <- function(
      # stop('only options for function_type are "basis" and "gaussian-process"')
      stop('only options for function_type are "basis", "bummer" and "gaussian-process"')
   }
-
+  cat("a = ", a, "\n")
+  cat("b = ", b, "\n")
+  cat("c = ", c, "\n")
+  cat("mu = ", mu, "\n")
   ## initialize additive components
   R_additive <- diag(d)
   xi_additive <-rep(0, choose(d, 2))
@@ -298,7 +301,7 @@ sim_compositional_data <- function(
                   tau_multiplicative=tau_multiplicative))
     } else if (function_type == "bummer") {
       return(list(y=y, y_pred=y_pred, X=X, X_pred=X_pred, alpha=alpha,
-                  alpha_pred=alpha_pred, N_i=N_i, N_i_pred=N_i_pred,
+                  alpha_pred=alpha_pred, zeta=zeta, N_i=N_i, N_i_pred=N_i_pred,
                   a=a, b=b, c=c))
 
     } else {

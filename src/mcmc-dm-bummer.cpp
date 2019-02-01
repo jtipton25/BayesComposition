@@ -57,7 +57,7 @@ List mcmcRcppDMBummer (const arma::mat& Y,
   // constant vectors
   arma::mat I_d(d, d, arma::fill::eye);
   arma::vec ones_d(d, arma::fill::ones);
-  arma::vec zeros_d(d, arma::fill::ones);
+  arma::vec zeros_d(d, arma::fill::zeros);
 
   // default normal prior for mean parameter a
   arma::vec mu_a(d, arma::fill::zeros);
@@ -169,6 +169,9 @@ List mcmcRcppDMBummer (const arma::mat& Y,
   for (int i=0; i<N; i++) {
     for (int j=0; j<d; j++) {
       alpha(i, j) = exp(a(j) - pow(X(i) - b(j), 2.0) / c(j));
+      if (alpha(i, j) < 1e-8) {
+        alpha(i, j) = 1e-8;
+      }
     }
   }
 
@@ -229,14 +232,18 @@ List mcmcRcppDMBummer (const arma::mat& Y,
     //
 
     if (sample_a) {
-      arma::vec a_star = a +
-        mvrnormArmaVecChol(zeros_d, lambda_a_tune * Sigma_a_tune_chol);
+      arma::vec a_star = a;
+      a_star += mvrnormArmaVecChol(zeros_d, lambda_a_tune * Sigma_a_tune_chol);
       arma::mat alpha_star(N, d);
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a_star(j) - pow(X(i) - b(j), 2.0) / c(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
+
       double mh1 = LL_DM(alpha_star, Y, N, d, count) +
         dMVN(a_star, mu_a, Sigma_a_chol);
       double mh2 = LL_DM(alpha, Y, N, d, count) +
@@ -261,12 +268,15 @@ List mcmcRcppDMBummer (const arma::mat& Y,
     //
 
     if (sample_b) {
-      arma::vec b_star = b +
-        mvrnormArmaVecChol(zeros_d, lambda_b_tune * Sigma_b_tune_chol);
+      arma::vec b_star = b;
+      b_star += mvrnormArmaVecChol(zeros_d, lambda_b_tune * Sigma_b_tune_chol);
       arma::mat alpha_star(N, d);
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a(j) - pow(X(i) - b_star(j), 2.0) / c(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
       double mh1 = LL_DM(alpha_star, Y, N, d, count) +
@@ -299,6 +309,9 @@ List mcmcRcppDMBummer (const arma::mat& Y,
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a(j) - pow(X(i) - b(j), 2.0) / c_star(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
       double mh1 = LL_DM(alpha_star, Y, N, d, count) + sum(log_c_star);  // jacobian of log-scale proposal;
@@ -356,12 +369,15 @@ List mcmcRcppDMBummer (const arma::mat& Y,
     //
 
     if (sample_a) {
-      arma::vec a_star = a +
-        mvrnormArmaVecChol(zeros_d, lambda_a_tune * Sigma_a_tune_chol);
+      arma::vec a_star = a;
+      a_star += mvrnormArmaVecChol(zeros_d, lambda_a_tune * Sigma_a_tune_chol);
       arma::mat alpha_star(N, d);
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a_star(j) - pow(X(i) - b(j), 2.0) / c(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
       double mh1 = LL_DM(alpha_star, Y, N, d, count) +
@@ -381,12 +397,15 @@ List mcmcRcppDMBummer (const arma::mat& Y,
     //
 
     if (sample_b) {
-      arma::vec b_star = b +
-        mvrnormArmaVecChol(zeros_d, lambda_b_tune * Sigma_b_tune_chol);
+      arma::vec b_star = b;
+      b_star += mvrnormArmaVecChol(zeros_d, lambda_b_tune * Sigma_b_tune_chol);
       arma::mat alpha_star(N, d);
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a(j) - pow(X(i) - b_star(j), 2.0) / c(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
       double mh1 = LL_DM(alpha_star, Y, N, d, count) +
@@ -412,6 +431,9 @@ List mcmcRcppDMBummer (const arma::mat& Y,
       for (int i=0; i<N; i++) {
         for (int j=0; j<d; j++) {
           alpha_star(i, j) = exp(a(j) - pow(X(i) - b(j), 2.0) / c_star(j));
+          if (alpha_star(i, j) < 1e-8) {
+            alpha_star(i, j) = 1e-8;
+          }
         }
       }
       double mh1 = LL_DM(alpha_star, Y, N, d, count) + sum(log_c_star);  // jacobian of log-scale proposal;
