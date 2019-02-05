@@ -26,7 +26,7 @@ arma::vec logit(const arma::vec& phi) {
 //'
 //' @param \code{phi} A \code{vector} on the interval (0, 1)
 //'
-//' @return \code{logit()} returns the inverse logit transform on \code{phi}
+//' @return \code{expit()} returns the inverse logit transform on \code{phi}
 //' @export
 // [[Rcpp::export]]
 arma::vec expit(const arma::vec& phi) {
@@ -36,4 +36,27 @@ arma::vec expit(const arma::vec& phi) {
     out(i) = exp(phi(i)) / (1.0 + exp(phi(i)));
   }
   return(out);
+}
+
+
+//' A function for calculating the logit function
+//'
+//' @param \code{phi} A \code{double} on the real line
+//'
+//' @return \code{logit_double()} returns the logit transform on \code{phi}
+//' @export
+// [[Rcpp::export]]
+double logit_double(const double& phi) {
+  return(log(phi / (1.0 - phi)));
+}
+
+//' A function for calculating the inverse logit function
+//'
+//' @param \code{phi} A \code{double} on the interval (0, 1)
+//'
+//' @return \code{expit_double()} returns the inverse logit transform on \code{phi}
+//' @export
+// [[Rcpp::export]]
+double expit_double(double& phi) {
+  return(exp(phi) / (1.0 + exp(phi)));
 }

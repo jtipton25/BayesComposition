@@ -440,6 +440,74 @@ RcppExport SEXP _BayesComposition_expit(SEXP phiSEXP) {
     UNPROTECT(1);
     return rcpp_result_gen;
 }
+// logit_double
+double logit_double(const double& phi);
+static SEXP _BayesComposition_logit_double_try(SEXP phiSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const double& >::type phi(phiSEXP);
+    rcpp_result_gen = Rcpp::wrap(logit_double(phi));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _BayesComposition_logit_double(SEXP phiSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(_BayesComposition_logit_double_try(phiSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
+// expit_double
+double expit_double(double& phi);
+static SEXP _BayesComposition_expit_double_try(SEXP phiSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< double& >::type phi(phiSEXP);
+    rcpp_result_gen = Rcpp::wrap(expit_double(phi));
+    return rcpp_result_gen;
+END_RCPP_RETURN_ERROR
+}
+RcppExport SEXP _BayesComposition_expit_double(SEXP phiSEXP) {
+    SEXP rcpp_result_gen;
+    {
+        Rcpp::RNGScope rcpp_rngScope_gen;
+        rcpp_result_gen = PROTECT(_BayesComposition_expit_double_try(phiSEXP));
+    }
+    Rboolean rcpp_isInterrupt_gen = Rf_inherits(rcpp_result_gen, "interrupted-error");
+    if (rcpp_isInterrupt_gen) {
+        UNPROTECT(1);
+        Rf_onintr();
+    }
+    bool rcpp_isLongjump_gen = Rcpp::internal::isLongjumpSentinel(rcpp_result_gen);
+    if (rcpp_isLongjump_gen) {
+        Rcpp::internal::resumeJump(rcpp_result_gen);
+    }
+    Rboolean rcpp_isError_gen = Rf_inherits(rcpp_result_gen, "try-error");
+    if (rcpp_isError_gen) {
+        SEXP rcpp_msgSEXP_gen = Rf_asChar(rcpp_result_gen);
+        UNPROTECT(1);
+        Rf_error(CHAR(rcpp_msgSEXP_gen));
+    }
+    UNPROTECT(1);
+    return rcpp_result_gen;
+}
 // makeUpperLKJ
 arma::mat makeUpperLKJ(const arma::vec& x, const int& d);
 static SEXP _BayesComposition_makeUpperLKJ_try(SEXP xSEXP, SEXP dSEXP) {
@@ -1607,6 +1675,8 @@ static int _BayesComposition_RcppExport_validate(const char* sig) {
         signatures.insert("double(*logDetChol)(const arma::mat)");
         signatures.insert("arma::vec(*logit)(const arma::vec&)");
         signatures.insert("arma::vec(*expit)(const arma::vec&)");
+        signatures.insert("double(*logit_double)(const double&)");
+        signatures.insert("double(*expit_double)(double&)");
         signatures.insert("arma::mat(*makeUpperLKJ)(const arma::vec&,const int&)");
         signatures.insert("Rcpp::List(*makeRLKJ)(const arma::vec&,const int&,bool,bool)");
         signatures.insert("arma::vec(*makeCRPS)(const arma::mat&,const arma::vec&,const int&)");
@@ -1644,6 +1714,8 @@ RcppExport SEXP _BayesComposition_RcppExport_registerCCallable() {
     R_RegisterCCallable("BayesComposition", "_BayesComposition_logDetChol", (DL_FUNC)_BayesComposition_logDetChol_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_logit", (DL_FUNC)_BayesComposition_logit_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_expit", (DL_FUNC)_BayesComposition_expit_try);
+    R_RegisterCCallable("BayesComposition", "_BayesComposition_logit_double", (DL_FUNC)_BayesComposition_logit_double_try);
+    R_RegisterCCallable("BayesComposition", "_BayesComposition_expit_double", (DL_FUNC)_BayesComposition_expit_double_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_makeUpperLKJ", (DL_FUNC)_BayesComposition_makeUpperLKJ_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_makeRLKJ", (DL_FUNC)_BayesComposition_makeRLKJ_try);
     R_RegisterCCallable("BayesComposition", "_BayesComposition_makeCRPS", (DL_FUNC)_BayesComposition_makeCRPS_try);
@@ -1680,6 +1752,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BayesComposition_logDetChol", (DL_FUNC) &_BayesComposition_logDetChol, 1},
     {"_BayesComposition_logit", (DL_FUNC) &_BayesComposition_logit, 1},
     {"_BayesComposition_expit", (DL_FUNC) &_BayesComposition_expit, 1},
+    {"_BayesComposition_logit_double", (DL_FUNC) &_BayesComposition_logit_double, 1},
+    {"_BayesComposition_expit_double", (DL_FUNC) &_BayesComposition_expit_double, 1},
     {"_BayesComposition_makeUpperLKJ", (DL_FUNC) &_BayesComposition_makeUpperLKJ, 2},
     {"_BayesComposition_makeRLKJ", (DL_FUNC) &_BayesComposition_makeRLKJ, 4},
     {"_BayesComposition_makeCRPS", (DL_FUNC) &_BayesComposition_makeCRPS, 3},

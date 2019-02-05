@@ -17,3 +17,8 @@ arma::vec logit(const arma::vec& phi);
 ///////////////////////////////////////////////////////////////////////////////
 
 arma::vec expit(const arma::vec& phi);
+
+
+double logit_double(const double& phi);
+
+double expit_double(double& phi);

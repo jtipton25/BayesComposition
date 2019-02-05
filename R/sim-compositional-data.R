@@ -142,10 +142,6 @@ sim_compositional_data <- function(
      # stop('only options for function_type are "basis" and "gaussian-process"')
      stop('only options for function_type are "basis", "bummer" and "gaussian-process"')
   }
-  cat("a = ", a, "\n")
-  cat("b = ", b, "\n")
-  cat("c = ", c, "\n")
-  cat("mu = ", mu, "\n")
   ## initialize additive components
   R_additive <- diag(d)
   xi_additive <-rep(0, choose(d, 2))

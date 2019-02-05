@@ -277,6 +277,48 @@ namespace BayesComposition {
         return Rcpp::as<arma::vec >(rcpp_result_gen);
     }
 
+    inline double logit_double(const double& phi) {
+        typedef SEXP(*Ptr_logit_double)(SEXP);
+        static Ptr_logit_double p_logit_double = NULL;
+        if (p_logit_double == NULL) {
+            validateSignature("double(*logit_double)(const double&)");
+            p_logit_double = (Ptr_logit_double)R_GetCCallable("BayesComposition", "_BayesComposition_logit_double");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_logit_double(Shield<SEXP>(Rcpp::wrap(phi)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<double >(rcpp_result_gen);
+    }
+
+    inline double expit_double(double& phi) {
+        typedef SEXP(*Ptr_expit_double)(SEXP);
+        static Ptr_expit_double p_expit_double = NULL;
+        if (p_expit_double == NULL) {
+            validateSignature("double(*expit_double)(double&)");
+            p_expit_double = (Ptr_expit_double)R_GetCCallable("BayesComposition", "_BayesComposition_expit_double");
+        }
+        RObject rcpp_result_gen;
+        {
+            RNGScope RCPP_rngScope_gen;
+            rcpp_result_gen = p_expit_double(Shield<SEXP>(Rcpp::wrap(phi)));
+        }
+        if (rcpp_result_gen.inherits("interrupted-error"))
+            throw Rcpp::internal::InterruptedException();
+        if (Rcpp::internal::isLongjumpSentinel(rcpp_result_gen))
+            throw Rcpp::LongjumpException(rcpp_result_gen);
+        if (rcpp_result_gen.inherits("try-error"))
+            throw Rcpp::exception(Rcpp::as<std::string>(rcpp_result_gen).c_str());
+        return Rcpp::as<double >(rcpp_result_gen);
+    }
+
     inline arma::mat makeUpperLKJ(const arma::vec& x, const int& d) {
         typedef SEXP(*Ptr_makeUpperLKJ)(SEXP,SEXP);
         static Ptr_makeUpperLKJ p_makeUpperLKJ = NULL;

@@ -92,10 +92,30 @@ logit <- function(phi) {
 #'
 #' @param \code{phi} A \code{vector} on the interval (0, 1)
 #'
-#' @return \code{logit()} returns the inverse logit transform on \code{phi}
+#' @return \code{expit()} returns the inverse logit transform on \code{phi}
 #' @export
 expit <- function(phi) {
     .Call('_BayesComposition_expit', PACKAGE = 'BayesComposition', phi)
+}
+
+#' A function for calculating the logit function
+#'
+#' @param \code{phi} A \code{double} on the real line
+#'
+#' @return \code{logit_double()} returns the logit transform on \code{phi}
+#' @export
+logit_double <- function(phi) {
+    .Call('_BayesComposition_logit_double', PACKAGE = 'BayesComposition', phi)
+}
+
+#' A function for calculating the inverse logit function
+#'
+#' @param \code{phi} A \code{double} on the interval (0, 1)
+#'
+#' @return \code{expit_double()} returns the inverse logit transform on \code{phi}
+#' @export
+expit_double <- function(phi) {
+    .Call('_BayesComposition_expit_double', PACKAGE = 'BayesComposition', phi)
 }
 
 #' A function for turning an \code{choose(d, 2)}-vector into a d by d matrix for use in constructing an upper-triangular Cholesky decomposition of a correlation matrix
