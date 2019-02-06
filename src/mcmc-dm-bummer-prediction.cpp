@@ -92,7 +92,7 @@ Rcpp::List ess_X (const double& X_current,
         test = false;
       }
       // control to limit alpha from getting unreasonably small
-    } else if (alpha_proposal.min() < pow(10.0, -8) ) {
+    } else if (alpha_proposal.min() < pow(10.0, -20)) {
       if (phi_angle > 0.0) {
         phi_angle_max = phi_angle;
       } else if (phi_angle < 0.0) {

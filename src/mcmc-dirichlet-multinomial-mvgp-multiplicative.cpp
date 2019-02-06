@@ -31,15 +31,15 @@ using namespace arma;
 ///////////////////////////////////////////////////////////////////////////////
 
 Rcpp::List ess_multiplicative (const arma::mat& eta_star_current,
-                const arma::vec& prior_sample,
-                const arma::mat& alpha_current,
-                const arma::mat& mu_mat_current,
-                const arma::mat& zeta_current,
-                const arma::mat& R_tau_current,
-                const arma::mat& Z_current, const arma::mat& y,
-                const int& N, const int& d, const int& j,
-                const arma::vec& count,
-                const std::string& file_name, const int& n_chain) {
+                               const arma::vec& prior_sample,
+                               const arma::mat& alpha_current,
+                               const arma::mat& mu_mat_current,
+                               const arma::mat& zeta_current,
+                               const arma::mat& R_tau_current,
+                               const arma::mat& Z_current, const arma::mat& y,
+                               const int& N, const int& d, const int& j,
+                               const arma::vec& count,
+                               const std::string& file_name, const int& n_chain) {
   // eta_star_current is the current value of the joint multivariate predictive process
   // prior_sample is a sample from the prior joing multivariate predictive process
   // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
@@ -129,6 +129,164 @@ Rcpp::List ess_multiplicative (const arma::mat& eta_star_current,
   }
   return(Rcpp::List::create(
       _["eta_star"] = eta_star_ess,
+      _["zeta"] = zeta_ess,
+      _["alpha"] = alpha_ess));
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//////////////// Elliptical Slice Sampler for random effect xi ////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+Rcpp::List ess_xi (const arma::vec& logit_xi_current,
+                   const arma::vec& prior_sample,
+                   const arma::vec& xi_current,
+                   const double& mu_xi,
+                   const double& sigma_xi,
+                   const arma::mat& alpha_current,
+                   const arma::mat& mu_mat_current,
+                   const arma::mat& zeta_current,
+                   const arma::mat& R_current,
+                   const arma::mat& R_tau_current,
+                   const arma::vec& tau_current,
+                   const arma::mat& Z_current,
+                   const arma::mat& eta_star_current,
+                   const arma::mat& Y,
+                   const int& N,
+                   const int& d,
+                   const int& B,
+                   const arma::vec& ones_B,
+                   const arma::vec& eta_vec,
+                   const arma::vec& count,
+                   const std::string& file_name,
+                   const int& n_chain) {
+  // eta_star_current is the current value of the joint multivariate predictive process
+  // prior_sample is a sample from the prior joing multivariate predictive process
+  // R_tau is the current value of the Cholskey decomposition for  predictive process linear interpolator
+  // Z_current is the current predictive process linear
+
+  // calculate log likelihood of current value
+  double current_log_like = LL_DM(alpha_current, Y, N, d, count);
+  for (int b=0; b<B; b++) {
+    current_log_like += R::dbeta(0.5 * (xi_current(b) + 1.0), eta_vec(b), eta_vec(b), true) +
+      R::dnorm(logit_xi_current(b), mu_xi, sigma_xi, true) -
+      log(0.5 * (xi_current(b) + 1.0)) -
+      log(1.0 - 0.5 * (xi_current(b) + 1.0));
+  }
+  // adjust for the change of measure and the jacobian of the transformation
+  double hh = log(R::runif(0.0, 1.0)) + current_log_like;
+
+
+  // Setup a bracket and pick a first proposal
+  // Bracket whole ellipse with both edges at first proposed point
+  double phi_angle = R::runif(0.0, 1.0) * 2.0 * arma::datum::pi;
+  double phi_angle_min = phi_angle - 2.0 * arma::datum::pi;
+  double phi_angle_max = phi_angle;
+
+  arma::vec logit_xi_ess = logit_xi_current;
+  arma::vec logit_xi_proposal = logit_xi_current;
+  arma::vec xi_tilde_ess = 0.5 * (xi_current - ones_B);
+  arma::vec xi_ess = xi_current;
+  arma::mat R_ess = R_current;
+  arma::mat R_tau_ess = R_tau_current;
+  arma::mat zeta_ess = zeta_current;
+  arma::mat alpha_ess = alpha_current;
+
+  bool test = true;
+
+  // Slice sampling loop
+  while (test) {
+    // compute proposal for angle difference and check to see if it is on the slice after removing the mean
+    logit_xi_proposal = (logit_xi_current - ones_B * mu_xi) * cos(phi_angle) +
+      prior_sample * sin(phi_angle);
+    // correct for 0 mean
+    arma::vec xi_tilde_proposal = expit(logit_xi_proposal);
+    arma::vec xi_proposal = 2.0 * xi_tilde_proposal - 1.0;
+    // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+
+    Rcpp::List R_out = makeRLKJ(xi_proposal, d, true, true);
+    arma::mat R_propsal = as<mat>(R_out["R"]);
+    arma::mat R_tau_proposal = R_propsal * diagmat(tau_current);
+    arma::mat zeta_proposal = Z_current * eta_star_current * R_tau_proposal;
+    arma::mat alpha_proposal = exp(mu_mat_current + zeta_proposal);
+
+    // calculate log likelihood of proposed value
+    double proposal_log_like = LL_DM(alpha_proposal, Y, N, d, count);
+
+    for (int b=0; b<B; b++) {
+      proposal_log_like += R::dbeta(0.5 * (xi_proposal(b) + 1.0), eta_vec(b), eta_vec(b), true) +
+        R::dnorm(logit_xi_proposal(b), mu_xi, sigma_xi, true) -
+        log(0.5 * (xi_proposal(b) + 1.0)) -
+        log(1.0 - 0.5 * (xi_proposal(b) + 1.0));
+    }
+    // control to limit alpha from getting unreasonably large
+    if (alpha_proposal.max() > pow(10.0, 10.0) ) {
+      // Rprintf("Bug - alpha (eta_star) is to large for LL to be stable \n");
+      // // set up output messages
+      // std::ofstream file_out;
+      // file_out.open(file_name, std::ios_base::app);
+      // file_out << "Bug - alpha (eta_star) is to large for LL to be stable on chain " << n_chain << "\n";
+      // // close output file
+      // file_out.close();
+      if (phi_angle > 0.0) {
+        phi_angle_max = phi_angle;
+      } else if (phi_angle < 0.0) {
+        phi_angle_min = phi_angle;
+      } else {
+        Rprintf("Bug - ESS for eta_star shrunk to current position with large alpha \n");
+        // set up output messages
+        std::ofstream file_out;
+        file_out.open(file_name, std::ios_base::app);
+        file_out << "Bug - ESS for eta_star shrunk to current position with large alpha on chain " << n_chain << "\n";
+        // close output file
+        file_out.close();
+        // proposal failed and don't update the chain
+        // eta_star_ess = eta_star_proposal;
+        // zeta_ess = zeta_proposal;
+        // alpha_ess = alpha_proposal;
+        test = false;
+      }
+    } else {
+      if (proposal_log_like > hh) {
+        // proposal is on the slice
+        logit_xi_ess = logit_xi_proposal;
+        xi_ess = xi_proposal;
+        xi_tilde_ess = xi_tilde_proposal;
+        R_ess = R_propsal;
+        R_tau_ess = R_tau_proposal;
+        zeta_ess = zeta_proposal;
+        alpha_ess = alpha_proposal;
+
+        test = false;
+      } else if (phi_angle > 0.0) {
+        phi_angle_max = phi_angle;
+      } else if (phi_angle < 0.0) {
+        phi_angle_min = phi_angle;
+      } else {
+        Rprintf("Bug - ESS for eta_star shrunk to current position \n");
+        // set up output messages
+        std::ofstream file_out;
+        file_out.open(file_name, std::ios_base::app);
+        file_out << "Bug - ESS for eta_star shrunk to current position on chain " << n_chain << "\n";
+        // close output file
+        file_out.close();
+        // proposal failed and don't update the chain
+        // eta_star_ess = eta_star_proposal;
+        // zeta_ess = zeta_proposal;
+        // alpha_ess = alpha_proposal;
+        test = false;
+      }
+    }
+    // Propose new angle difference
+    phi_angle = R::runif(0.0, 1.0) * (phi_angle_max - phi_angle_min) + phi_angle_min;
+  }
+  return(Rcpp::List::create(
+      _["logit_xi"] = logit_xi_ess,
+      _["xi"] = xi_ess,
+      _["xi_tilde"] = xi_tilde_ess,
+      _["R"] = R_ess,
+      _["R_tau"] = R_tau_ess,
       _["zeta"] = zeta_ess,
       _["alpha"] = alpha_ess));
 }
@@ -370,9 +528,20 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
   for (int b=0; b<B; b++) {
     xi_tilde(b) = 0.5 * (xi(b) + 1.0);
   }
+  arma::vec logit_xi_tilde = logit(xi_tilde);
   bool sample_xi = true;
   if (params.containsElementNamed("sample_xi")) {
     sample_xi = as<bool>(params["sample_xi"]);
+  }
+  // Elliptical slice sampler priors for xi
+  double mu_xi = 0.0;  // need to keep this as 0.
+  double sigma_xi = 1.55;
+
+
+  // use MH to sample xi...
+  bool sample_xi_mh = false;
+  if (params.containsElementNamed("sample_xi_mh")) {
+    sample_xi_mh = as<bool>(params["sample_xi_mh"]);
   }
   Rcpp::List R_out = makeRLKJ(xi, d, true, true);
   double log_jacobian = as<double>(R_out["log_jacobian"]);
@@ -569,8 +738,8 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_multiplicative(eta_star, eta_star_prior, alpha,
-                                            mu_mat, zeta, R_tau, Z, Y, N, d,
-                                            j, count, file_name, n_chain);
+                                                           mu_mat, zeta, R_tau, Z, Y, N, d,
+                                                           j, count, file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
           alpha = as<mat>(ess_eta_star_out["alpha"]);
@@ -665,48 +834,71 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
     //
 
     if (sample_xi) {
-      arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
-                                                         lambda_xi_tune * Sigma_xi_tune_chol);
-      arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
-      arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
-      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
-      if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
-        Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
-        arma::mat R_star = as<mat>(R_out["R"]);
-        arma::mat R_tau_star = R_star * diagmat(tau);
-        arma::mat zeta_star = Z * eta_star * R_tau_star;
-        arma::mat alpha_star = exp(mu_mat + zeta_star);
-        double log_jacobian_star = as<double>(R_out["log_jacobian"]);
-        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
-          // Jacobian adjustment
-          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
-        double mh2 = LL_DM(alpha, Y, N, d, count) +
-          // Jacobian adjustment
-          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+      if (sample_xi_mh) {
+        arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
+                                                           lambda_xi_tune * Sigma_xi_tune_chol);
+        arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
+        arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
+        // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+        if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
+          Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
+          arma::mat R_star = as<mat>(R_out["R"]);
+          arma::mat R_tau_star = R_star * diagmat(tau);
+          arma::mat zeta_star = Z * eta_star * R_tau_star;
+          arma::mat alpha_star = exp(mu_mat + zeta_star);
+          double log_jacobian_star = as<double>(R_out["log_jacobian"]);
+          double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+            // Jacobian adjustment
+            sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
+          double mh2 = LL_DM(alpha, Y, N, d, count) +
+            // Jacobian adjustment
+            sum(log(xi_tilde) + log(ones_B - xi_tilde));
+          for (int b=0; b<B; b++) {
+            mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+            mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          }
+          double mh = exp(mh1-mh2);
+          if (mh > R::runif(0.0, 1.0)) {
+            xi_tilde = xi_tilde_star;
+            xi = xi_star;
+            R = R_star;
+            R_tau = R_tau_star;
+            log_jacobian = log_jacobian_star;
+            zeta = zeta_star;
+            alpha = alpha_star;
+            xi_accept_batch += 1.0 / 50.0;
+          }
+        }
+        // update tuning
+        xi_batch.row(k % 50) = logit(xi_tilde).t();
+        if ((k+1) % 50 == 0){
+          updateTuningMV(k, xi_accept_batch, lambda_xi_tune, xi_batch,
+                         Sigma_xi_tune, Sigma_xi_tune_chol);
+        }
+      } else {
+
+        // elliptical slice sampler
+        arma::vec logit_xi_prior(B, arma::fill::zeros);
         for (int b=0; b<B; b++) {
-          mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
-          mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          logit_xi_prior(b) = R::rnorm(0.0, sigma_xi);
         }
-        double mh = exp(mh1-mh2);
-        if (mh > R::runif(0.0, 1.0)) {
-          xi_tilde = xi_tilde_star;
-          xi = xi_star;
-          R = R_star;
-          R_tau = R_tau_star;
-          log_jacobian = log_jacobian_star;
-          zeta = zeta_star;
-          alpha = alpha_star;
-          xi_accept_batch += 1.0 / 50.0;
-        }
-      }
-      // update tuning
-      xi_batch.row(k % 50) = logit(xi_tilde).t();
-      if ((k+1) % 50 == 0){
-        updateTuningMV(k, xi_accept_batch, lambda_xi_tune, xi_batch,
-                       Sigma_xi_tune, Sigma_xi_tune_chol);
+        Rcpp::List ess_xi_out = ess_xi(logit(xi_tilde), logit_xi_prior, xi, mu_xi,
+                                       sigma_xi, alpha,  mu_mat, zeta, R,
+                                       R_tau, tau, Z, eta_star, Y, N, d, B,
+                                       ones_B, eta_vec, count, file_name,
+                                       n_chain);
+
+        logit_xi_tilde = as<vec>(ess_xi_out["logit_xi"]);
+        xi = as<vec>(ess_xi_out["xi"]);
+        xi_tilde = as<vec>(ess_xi_out["xi_tilde"]);
+        R = as<mat>(ess_xi_out["R"]);
+        R_tau = as<mat>(ess_xi_out["R_tau"]);
+        zeta = as<mat>(ess_xi_out["zeta"]);
+        alpha = as<mat>(ess_xi_out["alpha"]);
       }
     }
-  // end of adaptation loop
+
+    // end of adaptation loop
   }
 
   Rprintf("Starting MCMC fit for chain %d, running for %d iterations \n",
@@ -827,8 +1019,8 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
         for (int j=0; j<d; j++) {
           arma::vec eta_star_prior = mvrnormArmaVecChol(zero_knots, C_chol);
           Rcpp::List ess_eta_star_out = ess_multiplicative(eta_star, eta_star_prior, alpha,
-                                            mu_mat, zeta, R_tau, Z, Y, N, d,
-                                            j, count, file_name, n_chain);
+                                                           mu_mat, zeta, R_tau, Z, Y, N, d,
+                                                           j, count, file_name, n_chain);
           eta_star = as<mat>(ess_eta_star_out["eta_star"]);
           zeta = as<mat>(ess_eta_star_out["zeta"]);
           alpha = as<mat>(ess_eta_star_out["alpha"]);
@@ -908,41 +1100,64 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
     //
 
     if (sample_xi) {
-      arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
-                                                         lambda_xi_tune * Sigma_xi_tune_chol);
-      arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
-      arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
-      // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
-      if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
-        Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
-        arma::mat R_star = as<mat>(R_out["R"]);
-        arma::mat R_tau_star = R_star * diagmat(tau);
-        arma::mat zeta_star = Z * eta_star * R_tau_star;
-        arma::mat alpha_star = exp(mu_mat + zeta_star);
-        double log_jacobian_star = as<double>(R_out["log_jacobian"]);
-        double mh1 = LL_DM(alpha_star, Y, N, d, count) +
-          // Jacobian adjustment
-          sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
-        double mh2 = LL_DM(alpha, Y, N, d, count) +
-          // Jacobian adjustment
-          sum(log(xi_tilde) + log(ones_B - xi_tilde));
+      if (sample_xi_mh) {
+        arma::vec logit_xi_tilde_star = mvrnormArmaVecChol(logit(xi_tilde),
+                                                           lambda_xi_tune * Sigma_xi_tune_chol);
+        arma::vec xi_tilde_star = expit(logit_xi_tilde_star);
+        arma::vec xi_star = 2.0 * xi_tilde_star - 1.0;
+        // arma::vec xi_star =  mvrnormArmaVecChol(xi, lambda_xi_tune * Sigma_xi_tune_chol);
+        if (all(xi_star > -1.0) && all(xi_star < 1.0)) {
+          Rcpp::List R_out = makeRLKJ(xi_star, d, true, true);
+          arma::mat R_star = as<mat>(R_out["R"]);
+          arma::mat R_tau_star = R_star * diagmat(tau);
+          arma::mat zeta_star = Z * eta_star * R_tau_star;
+          arma::mat alpha_star = exp(mu_mat + zeta_star);
+          double log_jacobian_star = as<double>(R_out["log_jacobian"]);
+          double mh1 = LL_DM(alpha_star, Y, N, d, count) +
+            // Jacobian adjustment
+            sum(log(xi_tilde_star) + log(ones_B - xi_tilde_star));
+          double mh2 = LL_DM(alpha, Y, N, d, count) +
+            // Jacobian adjustment
+            sum(log(xi_tilde) + log(ones_B - xi_tilde));
+          for (int b=0; b<B; b++) {
+            mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
+            mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          }
+          double mh = exp(mh1-mh2);
+          if (mh > R::runif(0.0, 1.0)) {
+            xi_tilde = xi_tilde_star;
+            xi = xi_star;
+            R = R_star;
+            R_tau = R_tau_star;
+            log_jacobian = log_jacobian_star;
+            zeta = zeta_star;
+            alpha = alpha_star;
+            xi_accept += 1.0 / n_mcmc;
+          }
+        }
+      } else {
+
+        // elliptical slice sampler
+        arma::vec logit_xi_prior(B, arma::fill::zeros);
         for (int b=0; b<B; b++) {
-          mh1 += R::dbeta(0.5 * (xi_star(b) + 1.0), eta_vec(b), eta_vec(b), true);
-          mh2 += R::dbeta(0.5 * (xi(b) + 1.0), eta_vec(b), eta_vec(b), true);
+          logit_xi_prior(b) = R::rnorm(0.0, sigma_xi);
         }
-        double mh = exp(mh1-mh2);
-        if (mh > R::runif(0.0, 1.0)) {
-          xi_tilde = xi_tilde_star;
-          xi = xi_star;
-          R = R_star;
-          R_tau = R_tau_star;
-          log_jacobian = log_jacobian_star;
-          zeta = zeta_star;
-          alpha = alpha_star;
-          xi_accept += 1.0 / n_mcmc;
-        }
+        Rcpp::List ess_xi_out = ess_xi(logit(xi_tilde), logit_xi_prior, xi, mu_xi,
+                                       sigma_xi, alpha,  mu_mat, zeta, R,
+                                       R_tau, tau, Z, eta_star, Y, N, d, B,
+                                       ones_B, eta_vec, count, file_name,
+                                       n_chain);
+
+        logit_xi_tilde= as<vec>(ess_xi_out["logit_xi"]);
+        xi = as<vec>(ess_xi_out["xi"]);
+        xi_tilde = as<vec>(ess_xi_out["xi_tilde"]);
+        R = as<mat>(ess_xi_out["R"]);
+        R_tau = as<mat>(ess_xi_out["R_tau"]);
+        zeta = as<mat>(ess_xi_out["zeta"]);
+        alpha = as<mat>(ess_xi_out["alpha"]);
       }
     }
+
 
     //
     // save variables
@@ -980,11 +1195,11 @@ List mcmcRcppDMMVGPMultiplicative (const arma::mat& Y, const arma::vec& X,
     file_out << "Average acceptance rate for phi  = " << mean(phi_accept) <<
       " for chain " << n_chain << "\n";
   }
-  // file_out << "Average acceptance rate for X  = " << mean(X_accept) <<
-  // " for chain " << n_chain << "\n";
   if (sample_xi) {
-    file_out << "Average acceptance rate for xi  = " << mean(xi_accept) <<
-      " for chain " << n_chain << "\n";
+    if (sample_xi_mh) {
+      file_out << "Average acceptance rate for xi  = " << mean(xi_accept) <<
+        " for chain " << n_chain << "\n";
+    }
   }
   if (sample_tau2) {
     file_out << "Average acceptance rate for tau2  = " << mean(tau2_accept) <<
