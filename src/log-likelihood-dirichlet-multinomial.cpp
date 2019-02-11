@@ -21,17 +21,17 @@ double LL_DM (const arma::mat& alpha, const arma::mat& Y, const double& N,
               const double& d, const arma::vec& count) {
   // alpha is an N by d matrix of transformed parameters
   // Y is a N by d dimensional vector of species counts
-  double mh = 0.0;
+  double ll = 0.0;
   for (int i=0; i<N; i++) {
     arma::rowvec Y_row = Y.row(i);
     arma::rowvec alpha_row = alpha.row(i);
     double sumAlpha = sum(alpha_row);
     for (int j=0; j<d; j++) {
-      mh += lgamma(Y_row(j) + alpha_row(j)) - lgamma(alpha_row(j));
+      ll += lgamma(Y_row(j) + alpha_row(j)) - lgamma(alpha_row(j));
     }
-    mh += lgamma(sumAlpha) - lgamma(count(i) + sumAlpha);
+    ll += lgamma(sumAlpha) - lgamma(count(i) + sumAlpha);
   }
-  return(mh);
+  return(ll);
 }
 
 
@@ -45,10 +45,10 @@ double LL_DM_row (const arma::rowvec& alpha, const arma::rowvec& Y,
   // alpha is an N by d matrix of transformed parameters
   // Y is a N by d dimensional vector of species counts
   double sumAlpha = sum(alpha);
-  double mh = lgamma(sumAlpha) - lgamma(count + sumAlpha);
+  double ll = lgamma(sumAlpha) - lgamma(count + sumAlpha);
   for (int j=0; j<d; j++) {
-    mh += lgamma(Y(j) + alpha(j)) - lgamma(alpha(j));
+    ll += lgamma(Y(j) + alpha(j)) - lgamma(alpha(j));
   }
 
-  return(mh);
+  return(ll);
 }
