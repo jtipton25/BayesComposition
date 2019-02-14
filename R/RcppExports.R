@@ -242,30 +242,6 @@ mcmcRcppDMLinear <- function(Y, X, params, n_chain = 1L, pool_s2_tau2 = TRUE, fi
     .Call('_BayesComposition_mcmcRcppDMLinear', PACKAGE = 'BayesComposition', Y, X, params, n_chain, pool_s2_tau2, file_name, corr_function)
 }
 
-pmax <- function(x, tol) {
-    .Call('_BayesComposition_pmax', PACKAGE = 'BayesComposition', x, tol)
-}
-
-ddirichletmultinomial <- function(Y, alpha, logd = TRUE) {
-    .Call('_BayesComposition_ddirichletmultinomial', PACKAGE = 'BayesComposition', Y, alpha, logd)
-}
-
-make_alpha <- function(Xbs, beta, link) {
-    .Call('_BayesComposition_make_alpha', PACKAGE = 'BayesComposition', Xbs, beta, link)
-}
-
-make_Xbs <- function(X_pred, X_mean, site_idx, year_idx, knots, rangeX, N, df, degree) {
-    .Call('_BayesComposition_make_Xbs', PACKAGE = 'BayesComposition', X_pred, X_mean, site_idx, year_idx, knots, rangeX, N, df, degree)
-}
-
-make_Xbs_calibrate <- function(X, site_idx, year_idx, knots, rangeX, N, df, degree) {
-    .Call('_BayesComposition_make_Xbs_calibrate', PACKAGE = 'BayesComposition', X, site_idx, year_idx, knots, rangeX, N, df, degree)
-}
-
-mcmcRcppSpatial <- function(Y_calibrate, Y, X, params, W, mu_X, s2_X, locs, site_idx, n_sites, tt, year_idx, samples, priors, link = "log", n_chain = 1L, file_name = "fit") {
-    .Call('_BayesComposition_mcmcRcppSpatial', PACKAGE = 'BayesComposition', Y_calibrate, Y, X, params, W, mu_X, s2_X, locs, site_idx, n_sites, tt, year_idx, samples, priors, link, n_chain, file_name)
-}
-
 predictRcppBasis <- function(Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name = "mvgp-predict") {
     .Call('_BayesComposition_predictRcppBasis', PACKAGE = 'BayesComposition', Y_pred, mu_X, s2_X, min_X, max_X, params, samples, file_name)
 }

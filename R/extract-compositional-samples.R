@@ -1,13 +1,4 @@
 extract_compositional_samples <- function(out) {
-  ## likelihood is the likelihood type. Options are::
-  ##    - "gaussian"
-  ##    - "multi-logit"
-  ##    - "dirichlet-multinomial"
-  ## function_type is the form of the latent functional. Options are:
-  ##    - "basis"
-  ##    - "gaussian-process"
-  ## additive_correlation: include an additive correlated error in the "multi-logit" or "dirichlet-multinomial" likelihood options
-  ## multiplicative_correlation: include a multiplicative correlation structure in the latent functional
 
   ## number of mcmc chains
   n_chains <- length(out)

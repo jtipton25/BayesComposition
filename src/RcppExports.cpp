@@ -1044,108 +1044,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// pmax
-arma::rowvec pmax(const arma::rowvec& x, double tol);
-RcppExport SEXP _BayesComposition_pmax(SEXP xSEXP, SEXP tolSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::rowvec& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(pmax(x, tol));
-    return rcpp_result_gen;
-END_RCPP
-}
-// ddirichletmultinomial
-double ddirichletmultinomial(const arma::rowvec& Y, const arma::rowvec& alpha, const bool& logd);
-RcppExport SEXP _BayesComposition_ddirichletmultinomial(SEXP YSEXP, SEXP alphaSEXP, SEXP logdSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::rowvec& >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< const arma::rowvec& >::type alpha(alphaSEXP);
-    Rcpp::traits::input_parameter< const bool& >::type logd(logdSEXP);
-    rcpp_result_gen = Rcpp::wrap(ddirichletmultinomial(Y, alpha, logd));
-    return rcpp_result_gen;
-END_RCPP
-}
-// make_alpha
-arma::mat make_alpha(const arma::mat& Xbs, const arma::mat& beta, const std::string& link);
-RcppExport SEXP _BayesComposition_make_alpha(SEXP XbsSEXP, SEXP betaSEXP, SEXP linkSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xbs(XbsSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type beta(betaSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type link(linkSEXP);
-    rcpp_result_gen = Rcpp::wrap(make_alpha(Xbs, beta, link));
-    return rcpp_result_gen;
-END_RCPP
-}
-// make_Xbs
-arma::mat make_Xbs(const arma::mat& X_pred, const arma::vec& X_mean, const arma::vec& site_idx, const arma::vec& year_idx, const arma::vec& knots, const arma::vec& rangeX, const int& N, const int& df, const int& degree);
-RcppExport SEXP _BayesComposition_make_Xbs(SEXP X_predSEXP, SEXP X_meanSEXP, SEXP site_idxSEXP, SEXP year_idxSEXP, SEXP knotsSEXP, SEXP rangeXSEXP, SEXP NSEXP, SEXP dfSEXP, SEXP degreeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X_pred(X_predSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type X_mean(X_meanSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type site_idx(site_idxSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type year_idx(year_idxSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type knots(knotsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type rangeX(rangeXSEXP);
-    Rcpp::traits::input_parameter< const int& >::type N(NSEXP);
-    Rcpp::traits::input_parameter< const int& >::type df(dfSEXP);
-    Rcpp::traits::input_parameter< const int& >::type degree(degreeSEXP);
-    rcpp_result_gen = Rcpp::wrap(make_Xbs(X_pred, X_mean, site_idx, year_idx, knots, rangeX, N, df, degree));
-    return rcpp_result_gen;
-END_RCPP
-}
-// make_Xbs_calibrate
-arma::mat make_Xbs_calibrate(const arma::mat& X, const arma::vec& site_idx, const arma::vec& year_idx, const arma::vec& knots, const arma::vec& rangeX, const int& N, const int& df, const int& degree);
-RcppExport SEXP _BayesComposition_make_Xbs_calibrate(SEXP XSEXP, SEXP site_idxSEXP, SEXP year_idxSEXP, SEXP knotsSEXP, SEXP rangeXSEXP, SEXP NSEXP, SEXP dfSEXP, SEXP degreeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type site_idx(site_idxSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type year_idx(year_idxSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type knots(knotsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type rangeX(rangeXSEXP);
-    Rcpp::traits::input_parameter< const int& >::type N(NSEXP);
-    Rcpp::traits::input_parameter< const int& >::type df(dfSEXP);
-    Rcpp::traits::input_parameter< const int& >::type degree(degreeSEXP);
-    rcpp_result_gen = Rcpp::wrap(make_Xbs_calibrate(X, site_idx, year_idx, knots, rangeX, N, df, degree));
-    return rcpp_result_gen;
-END_RCPP
-}
-// mcmcRcppSpatial
-List mcmcRcppSpatial(const arma::mat& Y_calibrate, const arma::mat& Y, const arma::vec& X, List params, const arma::mat& W, const double mu_X, const double s2_X, const arma::mat& locs, const arma::vec& site_idx, const int& n_sites, const int& tt, const arma::vec& year_idx, const Rcpp::List samples, const Rcpp::List priors, std::string link, int n_chain, std::string file_name);
-RcppExport SEXP _BayesComposition_mcmcRcppSpatial(SEXP Y_calibrateSEXP, SEXP YSEXP, SEXP XSEXP, SEXP paramsSEXP, SEXP WSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP locsSEXP, SEXP site_idxSEXP, SEXP n_sitesSEXP, SEXP ttSEXP, SEXP year_idxSEXP, SEXP samplesSEXP, SEXP priorsSEXP, SEXP linkSEXP, SEXP n_chainSEXP, SEXP file_nameSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type Y_calibrate(Y_calibrateSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type W(WSEXP);
-    Rcpp::traits::input_parameter< const double >::type mu_X(mu_XSEXP);
-    Rcpp::traits::input_parameter< const double >::type s2_X(s2_XSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type locs(locsSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type site_idx(site_idxSEXP);
-    Rcpp::traits::input_parameter< const int& >::type n_sites(n_sitesSEXP);
-    Rcpp::traits::input_parameter< const int& >::type tt(ttSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type year_idx(year_idxSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::List >::type samples(samplesSEXP);
-    Rcpp::traits::input_parameter< const Rcpp::List >::type priors(priorsSEXP);
-    Rcpp::traits::input_parameter< std::string >::type link(linkSEXP);
-    Rcpp::traits::input_parameter< int >::type n_chain(n_chainSEXP);
-    Rcpp::traits::input_parameter< std::string >::type file_name(file_nameSEXP);
-    rcpp_result_gen = Rcpp::wrap(mcmcRcppSpatial(Y_calibrate, Y, X, params, W, mu_X, s2_X, locs, site_idx, n_sites, tt, year_idx, samples, priors, link, n_chain, file_name));
-    return rcpp_result_gen;
-END_RCPP
-}
 // predictRcppBasis
 List predictRcppBasis(const arma::mat& Y_pred, const double mu_X, const double s2_X, const double min_X, const double max_X, List params, List samples, std::string file_name);
 RcppExport SEXP _BayesComposition_predictRcppBasis(SEXP Y_predSEXP, SEXP mu_XSEXP, SEXP s2_XSEXP, SEXP min_XSEXP, SEXP max_XSEXP, SEXP paramsSEXP, SEXP samplesSEXP, SEXP file_nameSEXP) {
@@ -1882,12 +1780,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_BayesComposition_predictRcppDMBummer", (DL_FUNC) &_BayesComposition_predictRcppDMBummer, 8},
     {"_BayesComposition_mcmcRcppDMBummer", (DL_FUNC) &_BayesComposition_mcmcRcppDMBummer, 5},
     {"_BayesComposition_mcmcRcppDMLinear", (DL_FUNC) &_BayesComposition_mcmcRcppDMLinear, 7},
-    {"_BayesComposition_pmax", (DL_FUNC) &_BayesComposition_pmax, 2},
-    {"_BayesComposition_ddirichletmultinomial", (DL_FUNC) &_BayesComposition_ddirichletmultinomial, 3},
-    {"_BayesComposition_make_alpha", (DL_FUNC) &_BayesComposition_make_alpha, 3},
-    {"_BayesComposition_make_Xbs", (DL_FUNC) &_BayesComposition_make_Xbs, 9},
-    {"_BayesComposition_make_Xbs_calibrate", (DL_FUNC) &_BayesComposition_make_Xbs_calibrate, 8},
-    {"_BayesComposition_mcmcRcppSpatial", (DL_FUNC) &_BayesComposition_mcmcRcppSpatial, 17},
     {"_BayesComposition_predictRcppBasis", (DL_FUNC) &_BayesComposition_predictRcppBasis, 8},
     {"_BayesComposition_mcmcRcppGAM", (DL_FUNC) &_BayesComposition_mcmcRcppGAM, 5},
     {"_BayesComposition_predictRcppMVGP", (DL_FUNC) &_BayesComposition_predictRcppMVGP, 8},
