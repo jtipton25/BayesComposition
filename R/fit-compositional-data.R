@@ -46,9 +46,9 @@ fit_compositional_data <- function(
   ## create progress file
   file.create(paste0(progress_directory, progress_file))
   ## create directory for MCMC output file
-  if (!dir.exists(save_directory)) {
-    dir.create(save_directory)
-  }
+  # if (!dir.exists(save_directory)) {
+  #   dir.create(save_directory)
+  # }
 
   ## if not given, set default parameter for number of adaptation iterations
   if(is.null(params$n_adapt)) {
