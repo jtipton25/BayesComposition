@@ -1,0 +1,921 @@
+---
+title: "Analyses for TA reconstruction comparison paper"
+author: "Connor Nolan"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+
+```{r}
+set.seed(11)
+library(BayesComposition) 
+library(knitr)
+library(ggplot2)
+library(gjam)
+library(rioja)
+library(analogue)
+library(here)
+
+N <- 500
+N_pred <- 25
+d <- 4
+n_knots <- 30
+
+```
+
+
+```{r, echo=FALSE, include=FALSE, eval=TRUE, results='hide'}
+raw_data <- read.csv(file=here("data", "North American Raw Testate - Paleon 2017-Sheet1.csv"), skip=6)
+
+y <- raw_data[, 12:85]
+X <- raw_data$WTD..cm.
+
+## join some taxa
+y <- join_testate(y)
+## remove zeros
+no_obs <- which(apply(y, 2, sum) == 0)
+
+## down to 47 species
+y <- y[, -no_obs]
+
+## Subset rare species
+sum(y)
+y <- y[, apply(y, 2, sum) > 500]
+# y <- y[, colSums(y) > 100]
+
+## remove the censored observations with X == 50
+y <- y[- which(X == 50), ]
+X <- X[- which(X == 50)]
+
+
+mean_X <- mean(X)
+sd_X <- sd(X)
+N <- nrow(y)
+
+N <- dim(y)[1]
+d <- dim(y)[2]
+
+## transform the data to percentages for use in transfer function models
+y_prop <- y
+for (i in 1:N) {
+  y_prop[i, ] <- y_prop[i, ] / sum(y_prop[i, ])
+}
+
+```
+
+
+```{r}
+testatePlotData <- data.frame(species=as.factor(rep(colnames(y), each=N)),
+                              Count=c(as.matrix(y_prop)), 
+                              Wetness=rep(X, times=dim(y)[2]))
+
+ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
+  geom_point(alpha=0.25) +
+  # geom_line(stat="smooth", method="loess", aes(y=Count, x=Wetness),
+  #           alpha=0.5, lwd=1.25) +
+  theme(legend.position="none") + ggtitle("Testate Composition vs. Water Table Depth") + 
+  labs(x="Water Table Depth", y="Composition") + 
+  theme(plot.title=element_text(size=24, face="bold", hjust=0.5)) + 
+  theme(axis.text.x = element_text(size = 22), 
+        axis.text.y = element_text(size = 22),
+        axis.title.x = element_text(size = 22), 
+        axis.title.y = element_text(size = 22))
+
+#ggplot(testatePlotData, aes(x=Wetness, y=Count, color=species, group=species)) +
+#  geom_point(alpha=0.25) + stat_density_2d()
+
+```
+
+```{r}
+y <- as.matrix(y)
+mean_X <- mean(X)
+sd_X <- sd(X)
+# X <- (X - mean_X) / sd_X
+X_knots <- seq(min(X, na.rm=TRUE)-1.25*sd(X, na.rm=TRUE), 
+               max(X, na.rm=TRUE)+1.25*sd(X, na.rm=TRUE), length=n_knots)
+
+params <- list(n_adapt=5000, n_mcmc=10000, n_thin=20, 
+               likelihood="dirichlet-multinomial",
+               function_type = "basis",
+               additive_correlation=FALSE, 
+               multiplicative_correlation=FALSE, 
+               message=100, n_chains=4, n_cores=4, df=8)
+
+save_directory <- here("mvgp-test")
+save_file <- "mvgp-dm-testate-bspline.RData"
+progress_directory <- here("mvgp-test")
+progress_file <- "mvgp-dm-testate-bspline.txt"
+
+
+## this file assumes you have already run the mcmc and have results to load
+if (file.exists(here("mvgp-test", save_file))) {
+  load(here("mvgp-test", save_file))  
+} else {
+   ## potentially long running MCMC code
+  out <- fit_compositional_data(y=y, X=X, params=params, 
+                                progress_directory = progress_directory,
+                                progress_file = progress_file, 
+                                save_directory = save_directory,
+                                save_file = save_file)
+  save(out, file=here("mvgp-test", save_file))
+}
+
+
+```
+
+```{r}
+## extract posterior samples
+samples <- extract_compositional_samples(out)
+mu_post <- samples$mu
+alpha_post <- samples$alpha
+beta_post <- samples$beta
+```
+
+
+```{r}
+Rhat <- make_gelman_rubin(out)
+layout(matrix(1:3, 3, 1))
+hist(Rhat[grepl("mu", names(Rhat))], main = "Rhat for mu")
+hist(Rhat[grepl("beta", names(Rhat))], main = "Rhat for beta")
+hist(Rhat, main="All parameters")
+Rhat[!is.finite(Rhat)] <- NA
+max(unlist(na.omit(Rhat)))
+```
+
+```{r}
+## Trace plots
+layout(matrix(1:4, 2, 2))
+matplot(beta_post[, , 1], type='l')
+matplot(beta_post[, , 2], type='l')
+matplot(beta_post[, , 3], type='l')
+matplot(beta_post[, , 4], type='l')
+```
+
+```{r}
+layout(1)
+matplot(mu_post, type='l')
+```
+
+```{r}
+alpha_post_mean <- apply(alpha_post, c(2, 3), mean)
+## force the sum to one constraint
+p_alpha_post_mean <- alpha_post_mean
+for (i in 1:N) {
+  p_alpha_post_mean[i, ] <- p_alpha_post_mean[i, ] / sum(p_alpha_post_mean[i, ])
+}
+
+y_percentages <- y
+for (i in 1:N) {
+  y_percentages[i, ] <- y_percentages[i, ] / sum(y_percentages[i, ])
+}
+
+fitPlotData <- data.frame(species=as.factor(rep(colnames(y), each=N)), 
+                          count=c(y_percentages), 
+                          depth=rep(X, times=d), 
+                          alpha=c(p_alpha_post_mean))
+
+g1_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("MVGP vs. depth") + 
+  geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25)
+
+g2_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+  geom_point(alpha=0.25) + theme(legend.position="none") +
+  ggtitle("MVGP vs. depth by species") + 
+  geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25) + 
+  facet_wrap( ~ species, ncol = 4)
+multiplot(g1_post, g2_post, cols=2)
+```
+
+#Reconstructions for Caribou Bog
+
+```{r}
+fileToLoad <- read.csv(here("data", "cariboucounts.csv"))
+
+y_recon <- fileToLoad[, 10:60]
+
+## join some testate taxa names to be consistent with model fit
+y_recon <- join_caribou(y_recon)
+
+N_recon_full <- sum(y_recon)
+
+idx1 <- colnames(y) %in% names(y_recon)
+# names(y_recon)[!idx1]
+# names(y_cal)[!idx2]
+
+## add in any species in calibation data not in reconstruction data
+for (i in colnames(y)[!idx1]){
+  y_recon[, i] <- rep(0, dim(y_recon)[1])
+}
+
+idx2 <- names(y_recon) %in% colnames(y)
+## remove species in reconstruction data not in calibration data
+for (i in names(y_recon)[!idx2]){
+  y_recon[, i] <- NULL
+}
+
+y_recon <- y_recon[, order(colnames(y_recon))]
+
+## check the names and orderings
+all.equal(colnames(y), colnames(y_recon))
+
+## Note: we are reducing the testate counts by about 25%...
+N_recon_reduced <- sum(y_recon)
+N_recon_full - N_recon_reduced
+
+
+```
+
+```{r}
+if (file.exists(here("mvgp-test", "caribou-predictions.RData"))) {
+  load(here("mvgp-test", "caribou-predictions.RData"))
+} else {
+  pred <- predict_compositional_data(as.matrix(y_recon), X, 
+                                     params=params, samples=samples, 
+                                     progress_directory=progress_directory,
+                                     progress_file = "DM-predict.txt")
+  save(pred, file=here("mvgp-test", "caribou-predictions.RData"))
+}
+```
+
+```{r}
+n_samples <- length(pred$X[, 1])
+N_pred <- length(pred$X[1, ])
+X_ci <- apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ]
+
+caribou.df <- data.frame(
+  Covariate=c(X_ci),
+  Observation=factor(rep((1:N_pred), each=n_samples*0.95))
+)
+
+ggplot(caribou.df, aes(Observation, Covariate)) +
+  geom_violin(position="identity") +
+  scale_x_discrete(breaks=seq(5, 310, 5)) + 
+  labs(x="Observation", y="Unobserved WTD")
+```
+
+Fit the other models
+
+```{r, cache=TRUE, message=FALSE}
+y_prop <- y
+y_recon_prop <- y_recon
+for (i in 1:N) {
+  y_prop[i, ] <- y_prop[i, ] / sum(y_prop[i, ])
+}
+for (i in 1:N_pred) {
+  y_recon_prop[i, ] <- y_recon_prop[i, ] / sum(y_recon_prop[i, ])
+}
+
+## WA reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modWA <- rioja::WA(y_prop[, - zeros_idx], X)
+  predWA <- predict(modWA, y_recon_prop[, - zeros_idx], sse=TRUE, nboot=1000)
+} else {
+  ## no data to subset
+  modWA <- rioja::WA(y_prop, X)
+  predWA <- predict(modWA, y_recon_prop, sse=TRUE, nboot=1000)      
+}
+
+pred_mu_WA <- predWA$fit[, 1]
+pred_sd_WA <- sqrt((predWA$v1.boot[, 1])^2 + predWA$v2.boot[1]^2)
+
+
+## WAPLS reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modWAPLS <- rioja::WAPLS(y_prop[, - zeros_idx], X, npls=5)
+  predWAPLS <- predict(modWAPLS, y_recon_prop[, - zeros_idx], npls=5,
+                       sse=TRUE, nboot=1000)
+} else {
+  ## no data to subset
+  modWAPLS <- rioja::WAPLS(y_prop, X, npls=5)
+  predWAPLS <- predict(modWAPLS, y_recon_prop, npls=5,
+                       sse=TRUE, nboot=1000)      
+}
+
+pred_mu_WAPLS <- predWAPLS$fit[, 1]
+pred_sd_WAPLS <- sqrt((predWAPLS$v1.boot[, 2])^2 + predWAPLS$v2.boot[2]^2)
+
+## MLRC reconstruction - subset to deal with all zero occurrence species
+zeros_idx <- which(colSums(y_prop) == 0)
+if (length(zeros_idx) > 0) {
+  modMLRC <- rioja::MLRC(y_prop[, - zeros_idx], X)
+  predMLRC <- predict(modMLRC, y_recon_prop[, - zeros_idx],
+                      sse=TRUE, nboot=1000)
+} else {
+  modMLRC <- rioja::MLRC(y_prop, X)
+  predMLRC <- predict(modMLRC, y_recon_prop, sse=TRUE, nboot=1000)
+}
+
+pred_mu_MLRC <- predMLRC$fit[, 1]
+pred_sd_MLRC <- sqrt(predMLRC$v1.boot[, 1]^2 + predMLRC$v2.boot^2 )
+
+## Modern analogue technique
+modMAT <- MAT(y_prop, X, k=20, lean=FALSE)
+predMAT <- predict(modMAT, y_recon_prop, k=10, sse=TRUE, n.boot=1000)
+
+pred_mu_MAT <- predMAT$fit.boot[, 2]
+pred_sd_MAT <- sqrt(predMAT$v1.boot[, 2]^2 + predMAT$v2.boot[2]^2)
+
+
+## Random Forest
+library(randomForest)
+train <- data.frame(y=X, as.matrix(y))
+test <- data.frame(y_recon)
+n_samples <- length(pred$X[, 1])
+rf <- randomForest(y ~ ., data = train, ntree=n_samples)
+preds_rf <- predict(rf, test, predict.all=TRUE)$individual
+
+```
+
+Bummer Model - fit in stan
+
+```{r}
+load(here("mvgp-test", "fit-bummer-stan.RData"))
+```
+
+predict with Bummer model
+
+```{r, cache=T}
+mu_X <- mean(X)
+sd_X <- sd(X)
+X_center <- (X-mu_X) / sd_X
+
+## extract samples
+e = rstan::extract(fit, permuted = TRUE)
+
+ddirmult <- function(yy, alpha) {
+  yy <- as.numeric(yy)
+  sum_y <- sum(yy)
+  return(exp(lgamma(apply(alpha, 1, sum)) - lgamma(sum_y + apply(alpha, 1, sum)) +
+                   apply(lgamma(t(yy + t(alpha))), 1, sum) - apply(lgamma(alpha), 1, sum)))
+}
+n_iter <- dim(e$a)[1]
+n_grid <- 200
+N_pred <- dim(y_recon)[1]
+X_post <- matrix(0, n_iter, N_pred)
+X_grid <- seq(from=min(X_center) - 1.25*sd(X_center), to=max(X_center) + 1.25*sd(X_center), length=n_grid)
+alpha_pred <- array(0, dim=c(n_iter, n_grid, d))
+
+for (k in 1:n_iter) {
+  if (k %% 10 == 0) {
+    message("Iteration ", k, " out of ", n_iter)
+  }
+  for (ii in 1:n_grid) {
+    alpha_pred[k, ii, ] <- e$a[k, ] * exp( - (e$mu[k, ] - X_grid[ii])^2 / e$sigma2[k, ])
+    }
+  for (i in 1:N_pred) {
+    pis <- ddirmult(y_recon[i, ], alpha_pred[k, , ]) * dnorm(X_grid, mu_X, sd_X)
+    pis <- pis / sum(pis)
+    X_post[k, i] <- sample(X_grid, size=1, replace=FALSE, prob=pis)
+  }
+}    
+
+## convert to original scale
+X_post <- X_post * sd_X + mu_X
+```
+
+
+```{r}
+# want to plot on the age model scale instead of observation #
+
+CaribouRecon <- read.csv(here("data", "CaribouRecon.csv"))
+```
+
+
+
+```{r}
+n_samples <- length(pred$X[, 1])
+N_pred <- length(pred$X[1, ])
+
+preds_WA <- matrix(0, n_samples, N_pred)
+preds_WAPLS <- matrix(0, n_samples, N_pred)
+preds_MLRC <- matrix(0, n_samples, N_pred)
+preds_MAT <- matrix(0, n_samples, N_pred)
+# preds_GJAM <- matrix(0, n_samples, d)
+for (i in 1:N_pred) {
+  preds_WA[, i] <- rnorm(n_samples, pred_mu_WA[i], pred_sd_WA[i])
+  preds_WAPLS[, i] <- rnorm(n_samples, pred_mu_WAPLS[i], pred_sd_WAPLS[i])
+  preds_MLRC[, i] <- rnorm(n_samples, pred_mu_MLRC[i], pred_sd_MLRC[i])
+  preds_MAT[, i] <- rnorm(n_samples, pred_mu_MAT[i], pred_sd_MAT[i])
+  # preds_GJAM[, j] <- rnorm(n_samples, pred_mu_GJAM, pred_sd_GJAM)
+}
+X_ci <- rbind(apply(pred$X, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_WA, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_WAPLS, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_MLRC, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_MAT, 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(preds_rf, 1, sort)[(0.025*n_samples+1):(0.975*n_samples), ], 
+          apply(X_post[rep(1:nrow(X_post), times=4), ], 2, sort)[(0.025*n_samples+1):(0.975*n_samples), ] )
+
+caribou.df <- data.frame(
+  Covariate=c(X_ci),
+  Observation=rep((1:N_pred), each=7*n_samples*0.95), 
+  Age=rep(CaribouRecon$Age, each=7*n_samples*.95),
+  Model=rep(c("MVGP", "WA", "WAPLS", "MLRC", "MAT", "RF", "Bummer"), each=n_samples*0.95)
+)
+
+```
+
+
+```{r}
+ggplot(caribou.df, aes(Observation, Covariate, color=Model)) +
+  #geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+  scale_y_reverse(lim=c(40, 0))
+ ggsave("caribou_recons.png")
+ 
+ ggplot(caribou.df, aes(Age, Covariate, color=Model)) +
+  #geom_violin(position="dodge") +
+  scale_x_discrete(breaks=seq(310, 0, -10)) + 
+  labs(x="Observation", y="Unobserved Water Depth") +
+  facet_wrap(~ Model, ncol=2) + 
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model)) +
+  scale_y_reverse(lim=c(40, 0))
+ ggsave("caribou_recons_age.png")
+```
+
+```{r}
+caribou_recons <- ggplot(caribou.df, aes(Age, Covariate)) + 
+  labs(x="cal yr BP", y="Water Table Depth (cm)") +
+  stat_summary(fun.y = mean, geom = "line", aes(Age, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.3) +
+      stat_summary(fun.ymin = function(z) {quantile(z, 0.25)},
+                 fun.ymax = function(z) {quantile(z, 0.75)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.6) +
+  facet_wrap(~Model, ncol=1) + scale_y_reverse() + scale_x_reverse() + coord_cartesian(ylim = c(55,-10))
+  
+
+caribou_recons <- caribou_recons + theme_bw() + theme(legend.position = "none", axis.title = element_text(size=20), axis.text = element_text(size =18), strip.text = element_text(size = 20))
+
+caribou_recons
+  
+
+ggsave("caribourecons_ribbons_age.png", width = 8, height = 11)
+```
+
+
+```{r}
+ggplot(subset(caribou.df, Model %in% c("MVGP", "WA")), aes(Observation, Covariate, color=Model)) +
+  labs(x="Observation", y="Unobserved Water Depth") +
+  stat_summary(fun.y = mean, geom = "line", aes(Observation, Covariate, group=Model), size=1.25) + 
+     stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                  fun.ymax = function(z) {quantile(z, 0.975)},
+                  geom = "ribbon", aes(Observation, Covariate,
+                                       group=Model, fill=Model), alpha=0.05) +
+  scale_y_reverse(lim=c(65, -20))
+```
+
+
+#Reconstruction figure for poster/paper
+
+```{r}
+levels(caribou.df$Model)
+
+caribou.df$Model <- factor(caribou.df$Model, levels = c("MVGP", "Bummer", "WA", "MLRC", "MAT", "RF"))
+
+```
+
+
+
+```{r}
+
+
+caribou_recons <- ggplot(caribou.df, aes(Age, Covariate)) + 
+  labs(x="cal yr BP", y="Water Table Depth (cm)") +
+  stat_summary(fun.y = mean, geom = "line", aes(Age, Covariate, group=Model)) + 
+    stat_summary(fun.ymin = function(z) {quantile(z, 0.025)},
+                 fun.ymax = function(z) {quantile(z, 0.975)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.3) +
+      stat_summary(fun.ymin = function(z) {quantile(z, 0.25)},
+                 fun.ymax = function(z) {quantile(z, 0.75)},
+                 geom = "ribbon", aes(Age, Covariate,
+                                      group=Model, linetype=NA, fill=Model), alpha=0.6) +
+  facet_wrap(~Model, ncol=1) + scale_y_reverse() + scale_x_reverse() + coord_cartesian(ylim = c(55,-10))
+  
+
+caribou_recons <- caribou_recons + theme_bw() + theme(legend.position = "none", axis.title = element_text(size=20), axis.text = element_text(size =18), strip.text = element_text(size = 20))
+
+caribou_recons
+  
+
+ggsave("caribourecons_ribbons_age2.png", width = 8, height = 11)
+```
+
+
+# WA vs MVGP figure for poster / paper
+
+```{r}
+coefWA <- coefficients(modWA)
+
+waFitData <- data.frame(species=row.names(coefWA), coefs=coefWA)
+
+g2_post <- ggplot(fitPlotData, aes(x=depth, y=count, color=species, group=species)) + 
+   geom_point(alpha=0.40) + theme(legend.position="none") +
+   ggtitle("MVGP and WA vs. depth by species") + 
+   #geom_line(aes(x=depth, y=alpha, col = species), fitPlotData, lwd=1.25) + 
+   geom_line(aes(x=depth, y=alpha), fitPlotData, lwd=0.5, col="black") + 
+   geom_vline(aes(xintercept=Optima), data=waFitData) + 
+   facet_wrap( ~ species, ncol = 6)
+ 
+g2_post + theme_bw()+ theme(legend.position = "none", axis.title = element_blank(), axis.text = element_text(size =14), strip.text = element_text(size = 16), plot.title = element_text(size=20)) 
+
+
+ggsave("MVGPvWA.pdf", height=10, width = 19)
+```
+
+
+Need a map of all the modern calibration dataset sites
+
+```{r}
+require(dplyr); require(RColorBrewer); require(ggplot2)
+require(mapdata); require(maptools)
+
+```
+
+```{r}
+cal_sites <- data.frame(raw_data$Peatland, raw_data$Location..lat.long..dec., raw_data$X, raw_data$X.1, raw_data$X.2)
+
+
+cal_sites$lat <- rep(NA, length(cal_sites),2)
+cal_sites$lon <- rep(NA, length(cal_sites),2)
+
+cal_sites[1:378,]$lat <- as.numeric(as.character(cal_sites[1:378,]$raw_data.Location..lat.long..dec.))+(as.numeric(as.character(cal_sites[1:378,]$raw_data.X/60)))
+
+cal_sites[1:378,]$lon <- as.numeric(as.character(cal_sites[1:378,]$raw_data.X.1))-(as.numeric(as.character(cal_sites[1:378,]$raw_data.X.2/60)))
+
+cal_sites[753:819,]$lat <- as.numeric(as.character(cal_sites[753:819,]$raw_data.Location..lat.long..dec.))
+cal_sites[753:819,]$lon <- as.numeric(as.character(cal_sites[753:819,]$raw_data.X))
+
+cal_sites[820:854,]$lat <- 34.92
+cal_sites[820:854,]$lon <- -77.09
+
+
+# data from Booth 2002 Table 1
+##Adams Trail
+cal_sites[410:419,]$lat <- 46.55
+cal_sites[410:419,]$lon <- -86.06
+
+##Au Train
+cal_sites[c(379:397, 420:423),]$lat <- 46.43
+cal_sites[c(379:397, 420:423),]$lon <- -86.86
+
+##Grand Traverse
+cal_sites[c(398:405, 531:562),]$lat <- 47.17
+cal_sites[c(398:405, 531:562),]$lon <- -88.255
+
+##Independence
+cal_sites[424:452,]$lat <- 47.42
+cal_sites[424:452,]$lon <- -88.01
+
+##Minden
+cal_sites[453:467,]$lat <- 43.61
+cal_sites[453:467,]$lon <- -82.84
+
+##North Rhody
+cal_sites[468:480,]$lat <- 46.58
+cal_sites[468:480,]$lon <- -86.07
+
+##Partridge
+cal_sites[481:502,]$lat <- 47.42
+cal_sites[481:502,]$lon <- -88.007
+
+##South Rhody
+cal_sites[503:518,]$lat <- 46.565
+cal_sites[503:518,]$lon <- -86.08
+
+##Tahquamenon
+cal_sites[c(406:409, 563:613),]$lat <- 46.475
+cal_sites[c(406:409, 563:613),]$lon <- -84.99
+
+##Uncle Sam
+cal_sites[519:526,]$lat <- 47.42
+cal_sites[519:526,]$lon <- -88.02
+
+##West Adams
+cal_sites[527:530,]$lat <- 46.55
+cal_sites[527:530,]$lon <- -86.104
+
+
+
+# Booth and Zygmunt 2005
+## Burro Bridge
+cal_sites[614:621,]$lat <- 37.93
+cal_sites[614:621,]$lon <- -107.73
+
+## Chatanooga
+cal_sites[622:635,]$lat <- 36.96
+cal_sites[622:635,]$lon <- -107.67
+
+## East Lilly
+cal_sites[636:645,]$lat <- 44.95
+cal_sites[636:645,]$lon <- -109.69
+
+## Henderson A
+cal_sites[646:650,]$lat <- 39.37
+cal_sites[646:650,]$lon <- -106.58
+
+## Henderson B
+cal_sites[651:658,]$lat <- 39.35
+cal_sites[651:658,]$lon <- -106.60
+
+## Keystone
+cal_sites[659:667,]$lat <- 38.87
+cal_sites[659:667,]$lon <- -107.04
+
+## Lizard
+cal_sites[668:672,]$lat <- 44.15
+cal_sites[668:672,]$lon <- -111.02
+
+## Little Moose
+cal_sites[673:684,]$lat <- 44.98
+cal_sites[673:684,]$lon <- -109.76
+
+## Lillypad
+cal_sites[685:699,]$lat <- 44.16
+cal_sites[685:699,]$lon <- -111.01
+
+## Robinson
+cal_sites[700:714,]$lat <- 44.17
+cal_sites[700:714,]$lon <- -111.07
+
+## Splains
+cal_sites[715:721,]$lat <- 38.83
+cal_sites[715:721,]$lon <- -107.075
+
+##SHafer
+cal_sites[722:730,]$lat <- 40.865
+cal_sites[722:730,]$lon <- -106.61
+
+##South Mineral
+cal_sites[731:738,]$lat <- 37.82
+cal_sites[731:738,]$lon <- -107.72
+
+## Wager Gulch
+cal_sites[739:747,]$lat <- 37.88
+cal_sites[739:747,]$lon <- -107.37
+
+## West Robinson
+cal_sites[748:752,]$lat <- 44.17
+cal_sites[748:752,]$lon <- -111.075
+
+# Markel et al 2010
+## Marathon B
+cal_sites[855:859,]$lat <- 60.60
+cal_sites[855:859,]$lon <- -151.21
+
+## No Name
+cal_sites[860:864,]$lat <- 60.64
+cal_sites[860:864,]$lon <- -151.08
+
+## Browns
+cal_sites[c(865:871, 923:937,947:962),]$lat <- 60.47
+cal_sites[c(865:871, 923:937,947:962),]$lon <- -150.73
+
+## Tear Drop
+cal_sites[872:877,]$lat <- 60.47
+cal_sites[872:877,]$lon <- -150.70
+
+## Funny River
+cal_sites[878:885,]$lat <- 60.41
+cal_sites[878:885,]$lon <- -150.902
+
+## Gas Field
+cal_sites[c(886:893, 963:978),]$lat <- 60.495
+cal_sites[c(886:893, 963:978),]$lon <- -151.25
+
+## Canaday
+cal_sites[897:904,]$lat <- 64.52
+cal_sites[897:904,]$lon <- -146.9
+
+## Park Highway
+cal_sites[905:911,]$lat <- 63.08
+cal_sites[905:911,]$lon <- -149.527
+
+## Jake Lake
+cal_sites[c(912:914,943:946),]$lat <- 62.43
+cal_sites[c(912:914,943:946),]$lon <- -150.70
+
+## Gate Creek
+cal_sites[915:922,]$lat <- 62.33
+cal_sites[915:922,]$lon <- -150.545
+
+## Caswell
+cal_sites[938:942,]$lat <- 62.004
+cal_sites[938:942,]$lon <- -150.061
+
+
+range(cal_sites$lat, na.rm=T)
+range(cal_sites$lon, na.rm=T)
+
+caribou_loc <- tibble(lat=44.985, lon=-68.81)
+
+```
+
+```{r}
+require(maps)
+require(mapdata)
+usa <- map_data("usa")
+canada <- map_data("worldHires", "Canada")
+mexico <- map_data("worldHires", "Mexico")
+
+alaska <- map_data("worldHires", "USA:Alaska")
+
+NAmap <- ggplot() + geom_polygon(data = usa, 
+                                 aes(x=long, y = lat, group = group), 
+                                 fill = "grey88", 
+                                 color="black") +
+    geom_polygon(data = canada, aes(x=long, y = lat, group = group), 
+                 fill = "grey88", color="black") + 
+    geom_polygon(data = mexico, aes(x=long, y = lat, group = group), 
+                 fill = "grey88", color="black") +
+    geom_polygon(data = alaska, aes(x=long, y = lat, group = group), 
+                                 fill = "grey88",  color="black") +
+    coord_fixed(xlim = c(-170, -20),  ylim = c(25, 70), ratio = 1.2)
+NAmap <- NAmap + geom_point(data = cal_sites, aes(x=lon, y=lat), shape=21, size=5, color="black", fill="lightblue") 
+NAmap <- NAmap + geom_point(data = caribou_loc, aes(x=lon, y=lat), shape=23, size=5,color="black", fill="orange")
+  
+NAmap + theme(line = element_blank(),
+          text = element_blank(), 
+          rect = element_blank())
+
+ggsave("TA_recon_map.pdf")
+
+
+```
+
+```{r}
+## better map
+
+devtools::install_github("hrbrmstr/albersusa")
+
+library(albersusa)
+library(sf)
+library(sp)
+library(rgeos)
+library(maptools)
+library(ggplot2)
+library(ggalt)
+library(ggthemes)
+library(viridis)
+library(scales)
+
+us <- usa_composite()
+us_map <- fortify(us, region="name")
+
+gg <- ggplot()
+gg <- gg + geom_map(data=us_map, map=us_map,
+                    aes(x=long, y=lat, map_id=id),
+                    color="black", fill="grey88", size=0.1)
+gg <- gg + geom_point(data = cal_sites, aes(x=lon, y=lat), shape=21, size=5, color="black", fill="lightblue") #+ points_elided()
+
+gg <- gg + theme_map()
+
+gg + coord_map()
+
+
+
+```
+
+
+
+Idea about testing the impact of sample size on reconstruction error. 
+
+```{r}
+#pull a few random samples from the modern calibration dataset. 
+to_test <- c(22,33,55)
+
+y_test <- y_recon[to_test,]
+
+pred_test <- predict_compositional_data(as.matrix(y_test), X, 
+                           params=params, samples=samples, 
+                           progress_directory=progress_directory,
+                           progress_file = "DM-predict_test.txt")
+
+y_test_3x <- y_test*10
+
+pred_test_3x <- predict_compositional_data(as.matrix(y_test_3x), X, 
+                           params=params, samples=samples, 
+                           progress_directory=progress_directory,
+                           progress_file = "DM-predict_test.txt")
+
+
+X_test <- X[to_test]
+
+
+```
+
+
+
+```{r}
+training_dists <- paldist(y_prop)
+
+training_dists_mat <- as.matrix(training_dists)
+
+recon_dists <- paldist2(y_prop, y_recon_prop)
+
+recon_dists_mat <- as.matrix(recon_dists)
+
+hist(training_dists)
+hist(recon_dists)
+
+
+
+
+library(philentropy)
+
+training_distances <- distance(y_prop, method="squared_chord")
+
+recon_distances <- distance(y_prop, y_recon_prop, method = "squared_chord")
+
+hist(training_distances)
+hist(recon_distances)
+
+mean(training_dists)
+mean(recon_dists)
+
+wilcox.test(training_dists, recon_dists)
+
+```
+
+
+```{r}
+hist(modMAT$dist.n)
+mean(modMAT$dist.n)
+median(modMAT$dist.n)
+range(modMAT$dist.n)
+
+
+hist(predMAT$dist.n)
+mean(predMAT$dist.n)
+median(predMAT$dist.n)
+range(predMAT$dist.n)
+
+
+library(tidyverse)
+
+mod_dists <- tibble(set = "mod", distance = as.vector(modMAT$dist.n))
+
+pred_dists <- tibble(set = "pred", distance = as.vector(predMAT$dist.n))
+
+MAT_dists <- bind_rows(mod_dists, pred_dists)
+
+
+
+MAT_dists_plot <- ggplot(MAT_dists, aes(distance, fill=set)) + geom_density(alpha=0.7, adjust=1, colour="grey50") + labs(x="square chord distance") + scale_fill_discrete(name=element_blank(), breaks=c("mod", "pred"), labels=c("Training Set", "Reconstruction Set"))
+MAT_dists_plot <- MAT_dists_plot + theme_bw() + theme(legend.position = "bottom")
+MAT_dists_plot
+ggsave("MAT_dists_plot.pdf")
+
+
+```
+
+
+
+
+
+
+```{r}
+n_samples_test <- length(pred_test$X[, 1])
+N_pred_test <- length(pred_test$X[1, ])
+X_ci_test <- apply(pred_test$X, 2, sort)[(0.025*n_samples_test+1):(0.975*n_samples_test), ]
+
+test.df <- data.frame(
+  Covariate=c(X_ci_test),
+  Observation=factor(rep((1:N_pred_test), each=n_samples_test*0.95))
+)
+
+ggplot(test.df, aes(Observation, Covariate)) +
+  geom_violin(position="identity") +
+  scale_x_discrete(breaks=seq(5, 310, 5)) + 
+  labs(x="Observation", y="Unobserved WTD")
+
+n_samples_test_3x <- length(pred_test_3x$X[, 1])
+N_pred_test_3x <- length(pred_test_3x$X[1, ])
+X_ci_test_3x <- apply(pred_test_3x$X, 2, sort)[(0.025*n_samples_test_3x+1):(0.975*n_samples_test_3x), ]
+
+test_3x.df <- data.frame(
+  Covariate=c(X_ci_test_3x),
+  Observation=factor(rep((1:N_pred_test_3x), each=n_samples_test*0.95))
+)
+
+ggplot(test_3x.df, aes(Observation, Covariate)) +
+  geom_violin(position="identity") +
+  scale_x_discrete(breaks=seq(5, 310, 5)) + 
+  labs(x="Observation", y="Unobserved WTD")
+
+
+
+```
+
+

@@ -73,10 +73,19 @@ predict_compositional_data <- function(
     }
   } else if (params$likelihood == "dirichlet-multinomial") {
     if (params$function_type == "basis") {
+
       ## dirichlet-multinomial basis mcmc
-      preds <- predictRcppDMBasis(y_reconstruct, mu_X, s2_X, min_X, max_X,
-                                  params, samples,
-                                  paste0(progress_directory, progress_file))
+      preds <- predictRcppDMBasis(
+        Y_pred    = y_reconstruct,
+        mu_X      = mu_X,
+        s2_X      = s2_X,
+        min_X     = min_X,
+        max_X     = max_X,
+        params    = params,
+        samples   = samples,
+        file_name = paste0(progress_directory, progress_file)
+      )
+
     } else if (params$function_type == "gaussian-process") {
       if (params$multiplicative_correlation == FALSE) {
         ## dirichlet-multinomial mvgp mcmc
